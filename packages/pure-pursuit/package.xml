@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package>
+  <name>pure_pursuit</name>
+  <version>1.0.0</version>
+  <description>TODO: description of `pure_pursuit`</description>
+
+  <maintainer email="fabrice.normandin@gmail.com">Fabrice Normandin</maintainer>
+  <license>GPLv3</license>
+
+  <buildtool_depend>catkin</buildtool_depend> 
+</package>
