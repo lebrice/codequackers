@@ -25,18 +25,7 @@
 	<!-- My Pure Pursuit Lane controller -->
 	<group>
 		<remap from="pure_pursuit_controller_node/lane_pose" to="lane_filter_node/lane_pose"/>
-		<!--NO!!! <remap from="fsm_node/mode" to="fsm_node/lane_pose_intersection_navigation"/> --><!--TODO what is this -->
-		<!-- <remap from="pure_pursuit_controller_node/lane_pose_obstacle_avoidance" to="lane_filter_node/lane_pose_obstacle_avoidance"/> TODO: add correct node_name
-		<remap from="pure_pursuit_controller_node/lane_pose_parking" to="lane_filter_node/lane_pose_parking"/>
-		<remap from="pure_pursuit_controller_node/implicit_coordination_velocity" to="lane_filter_node/implicit_coordination_velocity"/> -->
-		<remap from="pure_pursuit_controller_node/wheels_cmd_executed" to="wheels_driver_node/wheels_cmd_executed" />
-		<remap from="pure_pursuit_controller_node/fsm_mode" to="fsm_node/mode" />
-		<remap from="pure_pursuit_controller_node/obstacle_avoidance_pose" to="obst_avoid/obstacle_avoidance_pose" />
-		<remap from="pure_pursuit_controller_node/obstacle_detected" to="obstacle_avoidance_node/obstacle_avoidance_active_flag" />
-		<remap from="pure_pursuit_controller_node/stop_line_reading" to="stop_line_filter_node/stop_line_reading" />
-		
-		<remap from="wheels_driver_node/radius_limit" to="pure_pursuit_controller_node/radius_limit" />
-
+		<remap from="pure_pursuit_controller_node/seglist_filtered" to="lane_filter_node/seglist_filtered"/>
 		<include file="$(find pure_pursuit)/launch/pure_pursuit_controller_node.launch">
 			<arg name="veh" value="$(arg veh)"/>
 			<arg name="param_file_name" value="$(arg param_file_name)"/>
