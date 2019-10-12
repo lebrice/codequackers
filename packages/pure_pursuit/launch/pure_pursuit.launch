@@ -28,7 +28,8 @@
 		<remap from="pure_pursuit_controller_node/seglist_filtered" to="lane_filter_node/seglist_filtered"/>
 		<include file="$(find pure_pursuit)/launch/pure_pursuit_controller_node.launch">
 			<arg name="veh" value="$(arg veh)"/>
-			<arg name="param_file_name" value="$(arg param_file_name)"/>
+			<!-- TODO: use this to pass a specific parameter file. (not needed here.) -->
+			<!-- <arg name="param_file_name" value="default"/> -->
 		</include>
 	</group>
 

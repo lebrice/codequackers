@@ -4,11 +4,9 @@ import time
 
 import numpy as np
 import rospy
-from controller import Controller
 from duckietown_msgs.msg import (BoolStamped, FSMState, LanePose,
                                  StopLineReading, Twist2DStamped,
                                  WheelsCmdStamped, SegmentList)
-
 
 class pure_pursuit_controller(object):
 
@@ -20,6 +18,9 @@ class pure_pursuit_controller(object):
         # Subscriptions
         self.sub_lane_pose = rospy.Subscriber("~lane_pose", LanePose, self.handle_pose, queue_size=1)
         self.sub_seglist_filtered = rospy.Subscriber("~seglist_filtered", SegmentList, self.new_segments_received, queue_size=1)
+        
+        # safe shutdown
+        rospy.on_shutdown(self.custom_shutdown)
 
         self.loginfo("Initialized")
    
@@ -59,17 +60,17 @@ class pure_pursuit_controller(object):
         car_control_msg.v = 0.0
         car_control_msg.omega = 0.0
 
-        self.loginfo("Sending car command: v: %d omega: %d" % v, omega)
+        self.loginfo("Sending car command: v: {} omega: {}".format(v, omega))
         self.pub_car_cmd.publish(car_control_msg)
         
 
     def loginfo(self, s):
-        rospy.loginfo('[%s] %s' % (self.node_name, s))
+        rospy.loginfo('[{}] {}'.format(self.node_name, s))
 
     def setupParameter(self, param_name, default_value):
         value = rospy.get_param(param_name,default_value)
         rospy.set_param(param_name,value)   # Write to parameter server for transparancy
-        rospy.loginfo("[%s] %s = %s " %(self.node_name,param_name,value))
+        self.loginfo("%s = %s " %(self.node_name,param_name,value))
         return value
 
 if __name__ == "__main__":
