@@ -101,7 +101,6 @@ class pure_pursuit_controller(object):
  
     def new_segments_received(self, inlier_segments_msg):
         self.header = inlier_segments_msg.header
-        # print(self.header)
         segments = inlier_segments_msg.segments
         self.logdebug("Received {} new segments".format(len(segments)))
         for i, segment in enumerate(segments):
@@ -133,7 +132,9 @@ class pure_pursuit_controller(object):
                 return
         else:
             centroid = self.find_centroid(Color.YELLOW)
-            
+        
+        self.loginfo("Points: {}".format({color: len(values) for color, values in self.points.item()}))
+
         centroid_np = point_to_np(centroid)
         self.logdebug("Centroid: {}".format(centroid_np))
         # print("average point:", average_point)
