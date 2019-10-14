@@ -1,1 +1,4 @@
 #pure_pursuit/pure_pursuit_controller_node
+~lookahead_dist: 0.25 
+~buffer_length: 5
+~v_max: 0.5
