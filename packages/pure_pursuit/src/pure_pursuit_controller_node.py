@@ -65,16 +65,21 @@ class pure_pursuit_controller(object):
 
         buffer_length_fallback = 10
         self.buffer_length = self.setupParameter("~buffer_length", buffer_length_fallback) # keep 50 points at a time for each color.
+        self.points = collections.defaultdict(lambda: collections.deque(maxlen=self.buffer_length))
+        
         lookahead_dist_fallback = 0.45
         self.lookahead_dist = self.setupParameter("~lookahead_dist", lookahead_dist_fallback)
+        
         v_max_fallback = 0.5
         self.max_speed = self.setupParameter("~v_max", v_max_fallback)
         
-        self.points = collections.defaultdict(lambda: collections.deque(maxlen=self.buffer_length))
+        delta_t_fallback = 0.1
+        self.delta_t = self.setupParameter("~delta_t", delta_t_fallback)   
+        self.car_command_timer = rospy.Timer(rospy.Duration.from_sec(self.delta_t), self.update_car_command)
+        
 
         self.header = None
         
-        # self.clear_points_timer = rospy.Timer(rospy.Duration.from_sec(0.1), self.clear_points)
 
         self.loginfo("Initialized")
 
@@ -88,6 +93,7 @@ class pure_pursuit_controller(object):
         self.sub_seglist_filtered.unregister()
 
         # Send stop command
+        self.loginfo("Stopping the robot")
         self.send_car_command(0.0,0.0)
 
         rospy.sleep(0.5)    #To make sure that it gets published.
@@ -95,25 +101,41 @@ class pure_pursuit_controller(object):
  
     def new_segments_received(self, inlier_segments_msg):
         self.header = inlier_segments_msg.header
-
+        # print(self.header)
         segments = inlier_segments_msg.segments
         self.logdebug("Received {} new segments".format(len(segments)))
+        for i, segment in enumerate(segments):
+            # print(segment)
+            color = Color(segment.color)
+            assert color in [Color.RED, Color.YELLOW, Color.WHITE]
+            with self.points_lock:
+                self.points[color].extend(segment.points)
 
 
-        if len(segments) == 0:
-            if all(len(points_list) == 0 for color, points_list in self.points.items()):
-                self.logwarn("NO segments received and no previous segments stored. Telling the robot to go straight at max speed.")
-                self.send_car_command(self.max_speed, 0)
+    def update_car_command(self, timerevent):
+        self.logdebug("updating car command")
+        if not self.has_points(Color.YELLOW):
+            if self.has_points(Color.WHITE):
+                white_centroid = self.find_centroid(Color.WHITE)
+                distance_to_center = 0.15
+                if white_centroid.y > 0:
+                    self.logwarn("Haven't seen the yellow line yet, but the white line is present and to the RIGHT")
+                else:
+                    self.logwarn("Haven't seen the yellow line yet, but the white line is present and to the LEFT")
+
+                offset = (1 if white_centroid.y < 0 else -1) * distance_to_center
+
+                centroid = white_centroid
+                centroid.y += offset
             else:
-                self.logdebug("No new segments, using stored history instead.")
+                self.logwarn("Can't see any lines, just going straight at max speed.")
+                self.send_car_command(self.max_speed, 0)
                 return
-
-        self.add_segments(segments)
-
-        centroid = self.find_centroid()
+        else:
+            centroid = self.find_centroid(Color.YELLOW)
+            
         centroid_np = point_to_np(centroid)
         self.logdebug("Centroid: {}".format(centroid_np))
-
         # print("average point:", average_point)
         # alpha = np.arctan2(average_point.y, average_point.x)
         hypothenuse = np.sqrt(centroid_np.dot(centroid_np))
@@ -124,27 +146,19 @@ class pure_pursuit_controller(object):
         omega = sin_alpha / self.lookahead_dist
         self.send_car_command(v, omega)
 
-    def add_segments(self, segments):
-        for i, segment in enumerate(segments):
-            color = Color(segment.color)
-            assert color in [Color.RED, Color.YELLOW, Color.WHITE]
-            with self.points_lock:
-                self.points[color].extend(segment.points)
+    def has_points(self, color=None):
+        if color == None:
+            return all(len(values) > 0 for color, values in self.points.items())
+        return len(self.points[color]) > 0
 
-
-    def find_centroid(self):
+    def find_centroid(self, color=None):
         with self.points_lock:
-            points_to_average = list(self.points[Color.YELLOW])
-            if len(points_to_average) == 0:
-                self.logwarn("Can't find any yellow points! Using the average of white and yellow instead!")
-                points_to_average = list(itertools.chain(self.points[Color.YELLOW], self.points[Color.WHITE]))
-            
-            self.logdebug(
-                "{} points to average ({} yellow and {} white)".format(
-                    len(points_to_average),
-                    len(self.points[Color.YELLOW]), len(self.points[Color.WHITE])
-                )
-            )
+            if color is None:
+                self.logdebug("Averaging points of all colors")
+                points_to_average = list(itertools.chain(*self.points.values()))
+            else:
+                self.logdebug("Averaging points of color {}".format(color))
+                points_to_average = self.points[color]
             x_centroid = np.mean([p.x for p in points_to_average])
             y_centroid = np.mean([p.y for p in points_to_average])
         centroid = Point(x=x_centroid, y=y_centroid)

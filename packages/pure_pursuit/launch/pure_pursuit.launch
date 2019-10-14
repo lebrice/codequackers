@@ -28,6 +28,8 @@
 		<!-- <remap from="pure_pursuit_controller_node/seglist_filtered" to="ground_projection/lineseglist_out"/> -->
 		<remap from="pure_pursuit_controller_node/seglist_filtered" to="lane_filter_node/seglist_filtered"/>
 		<remap from="pure_pursuit_controller_node/car_cmd" to="car_cmd_switch_node/cmd"/>
+		<!-- <remap from="pure_pursuit_controller_node/car_cmd" to="lane_controller_node/car_cmd"/> -->
+
 		<include file="$(find pure_pursuit)/launch/pure_pursuit_controller_node.launch">
 			<arg name="veh" value="$(arg veh)"/>
 			<!-- TODO: use this to pass a specific parameter file. (not needed here.) -->
