@@ -25,7 +25,7 @@
 	<!-- My Pure Pursuit Lane controller -->
 	<group>
 		<remap from="pure_pursuit_controller_node/lane_pose" to="lane_filter_node/lane_pose"/>
-		<remap from="pure_pursuit_controller_node/seglist_filtered" to="lane_filter_node/seglist_filtered"/>
+		<!-- <remap from="pure_pursuit_controller_node/seglist_filtered" to="ground_projection/lineseglist_out"/> -->
 		<remap from="pure_pursuit_controller_node/seglist_filtered" to="lane_filter_node/seglist_filtered"/>
 		<remap from="pure_pursuit_controller_node/car_cmd" to="car_cmd_switch_node/cmd"/>
 		<include file="$(find pure_pursuit)/launch/pure_pursuit_controller_node.launch">

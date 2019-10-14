@@ -72,7 +72,7 @@ class pure_pursuit_controller(object):
         
         self.points = collections.defaultdict(lambda: collections.deque(maxlen=self.buffer_length))
 
-        
+        self.header = None
         
         # self.clear_points_timer = rospy.Timer(rospy.Duration.from_sec(0.1), self.clear_points)
 
@@ -98,8 +98,16 @@ class pure_pursuit_controller(object):
 
         segments = inlier_segments_msg.segments
         self.logdebug("Received {} new segments".format(len(segments)))
+
+
         if len(segments) == 0:
-            return
+            if all(len(points_list) == 0 for color, points_list in self.points.items()):
+                self.logwarn("NO segments received and no previous segments stored. Telling the robot to go straight at max speed.")
+                self.send_car_command(self.max_speed, 0)
+            else:
+                self.logdebug("No new segments, using stored history instead.")
+                return
+
         self.add_segments(segments)
 
         centroid = self.find_centroid()
@@ -111,8 +119,8 @@ class pure_pursuit_controller(object):
         hypothenuse = np.sqrt(centroid_np.dot(centroid_np))
         sin_alpha = centroid.y / hypothenuse
         # self.loginfo("sin_alpha: {:.3f}".format(sin_alpha))
-
-        v = 0.5
+        
+        v = self.max_speed
         omega = sin_alpha / self.lookahead_dist
         self.send_car_command(v, omega)
 
@@ -126,7 +134,11 @@ class pure_pursuit_controller(object):
 
     def find_centroid(self):
         with self.points_lock:
-            points_to_average = list(itertools.chain(self.points[Color.YELLOW], self.points[Color.WHITE]))
+            points_to_average = list(self.points[Color.YELLOW])
+            if len(points_to_average) == 0:
+                self.logwarn("Can't find any yellow points! Using the average of white and yellow instead!")
+                points_to_average = list(itertools.chain(self.points[Color.YELLOW], self.points[Color.WHITE]))
+            
             self.logdebug(
                 "{} points to average ({} yellow and {} white)".format(
                     len(points_to_average),
@@ -164,6 +176,9 @@ class pure_pursuit_controller(object):
 
     def logdebug(self, s):
         rospy.logdebug("[{}] {}".format(self.node_name, s))
+
+    def logwarn(self, s):
+        rospy.logwarn("[{}] {}".format(self.node_name, s))
 
     def setupParameter(self, param_name, default_value):
         value = rospy.get_param(param_name, default_value)
