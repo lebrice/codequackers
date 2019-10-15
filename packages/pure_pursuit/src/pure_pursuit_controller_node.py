@@ -143,6 +143,8 @@ class pure_pursuit_controller(object):
         # self.update_past_path_point_coordinates(timer_event)
         self.publish_path_points()
 
+        self.logdebug("Points: {}".format({color: len(values) for color, values in self.points.items()}))
+
         if not self.has_points():
             self.logwarn("Can't see any lines, just going straight at max speed.")
             self.send_car_command(self.max_speed, 0)
@@ -161,13 +163,15 @@ class pure_pursuit_controller(object):
             target = white_centroid
             target.y += offset
         elif self.has_points(Color.YELLOW):
-
             # target = self.find_centroid(Color.YELLOW)
             target = self.find_point_closest_to_lookahead_distance()
+
         else:
             self.logwarn("Weird, didn't fit into any of the above cases...")
             self.logwarn("Points: {}".format({color: len(values) for color, values in self.points.items()}))
             target = Point(1.0, 0.0)
+        
+        self.logdebug("Target: {}".format(target))
         
         self.target = target    
 
@@ -288,7 +292,7 @@ class pure_pursuit_controller(object):
         return value
 
 if __name__ == "__main__":
-    rospy.init_node("pure_pursuit_controller_node", anonymous=False)  # adapted to sonjas default file
+    rospy.init_node("pure_pursuit_controller_node", anonymous=False, log_level=rospy.DEBUG)  # adapted to sonjas default file
 
     lane_control_node = pure_pursuit_controller()
     rospy.spin()
