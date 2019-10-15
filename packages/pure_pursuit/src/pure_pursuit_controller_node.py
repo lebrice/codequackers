@@ -70,6 +70,7 @@ class pure_pursuit_controller(object):
 
     def __init__(self):
         self.node_name = rospy.get_name()
+        self.loginfo("Node Name: {}".format(self.node_name))
         self.header = None
         # Publication
         self.pub_car_cmd = rospy.Publisher("~car_cmd", Twist2DStamped, queue_size=1)
@@ -77,7 +78,6 @@ class pure_pursuit_controller(object):
         
         # Subscriptions
         self.sub_seglist_filtered = rospy.Subscriber("~seglist_filtered", SegmentList, self.new_segments_received, queue_size=1)
-        
         # safe shutdown
         rospy.on_shutdown(self.custom_shutdown)
 
@@ -88,8 +88,8 @@ class pure_pursuit_controller(object):
         lookahead_dist_fallback = 0.5
         self.lookahead_dist = self.setupParameter("~lookahead_dist", lookahead_dist_fallback)
         
-        v_max_fallback = 0.1
-        self.max_speed = self.setupParameter("~v_max", v_max_fallback)
+        max_speed_fallback = 0.1
+        self.max_speed = self.setupParameter("~v_max", max_speed_fallback)
         
         delta_t_fallback = 0.1
         self.delta_t = self.setupParameter("~delta_t", delta_t_fallback)   
@@ -286,7 +286,11 @@ class pure_pursuit_controller(object):
         rospy.logerror("[{}] {}".format(self.node_name, s))
 
     def setupParameter(self, param_name, default_value):
-        value = rospy.get_param(param_name, default_value)
+        if "brigitte" in self.node_name:
+            self.logwarn("Using default value for parameter {} since we're running on the duckiebot.".format(param_name))
+            value = default_value
+        else:
+            value = rospy.get_param(param_name, default_value)
         rospy.set_param(param_name, value)   # Write to parameter server for transparancy
         self.loginfo("{} = {} ".format(param_name, value))
         return value
