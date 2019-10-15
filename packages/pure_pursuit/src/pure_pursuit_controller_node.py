@@ -13,6 +13,8 @@ from duckietown_msgs.msg import (BoolStamped, FSMState, LanePose,
                                  Twist2DStamped, WheelsCmdStamped, PointList)
 from geometry_msgs.msg import Point
 
+import os
+import datetime
 # import test_pure_pursuit
 
 def wrap(angle):
@@ -71,6 +73,10 @@ class pure_pursuit_controller(object):
     def __init__(self):
         self.node_name = rospy.get_name()
         self.loginfo("Node Name: {}".format(self.node_name))
+        
+        last_edit_time = os.environ.get("LAST_EDIT_TIME", "UNKNOWN")
+        self.logwarn("This code was last edited on {}".format(last_edit_time))
+        
         self.header = None
         # Publication
         self.pub_car_cmd = rospy.Publisher("~car_cmd", Twist2DStamped, queue_size=1)
