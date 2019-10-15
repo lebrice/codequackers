@@ -10,7 +10,8 @@ import numpy as np
 import rospy
 from duckietown_msgs.msg import (BoolStamped, FSMState, LanePose,
                                  Segment, SegmentList, StopLineReading,
-                                 Twist2DStamped, WheelsCmdStamped, PointList)
+                                 Twist2DStamped, WheelsCmdStamped)
+# from duckietown_msgs.msg import PointList
 from geometry_msgs.msg import Point
 
 import os
@@ -80,7 +81,7 @@ class pure_pursuit_controller(object):
         self.header = None
         # Publication
         self.pub_car_cmd = rospy.Publisher("~car_cmd", Twist2DStamped, queue_size=1)
-        self.pub_path_points = rospy.Publisher("~path_points", PointList, queue_size=1)
+        # self.pub_path_points = rospy.Publisher("~path_points", PointList, queue_size=1)
         
         # Subscriptions
         self.sub_seglist_filtered = rospy.Subscriber("~seglist_filtered", SegmentList, self.new_segments_received, queue_size=1)
@@ -147,7 +148,7 @@ class pure_pursuit_controller(object):
         self.logdebug("updating car command")
         
         # self.update_past_path_point_coordinates(timer_event)
-        self.publish_path_points()
+        # self.publish_path_points()
 
         self.logdebug("Points: {}".format({color: len(values) for color, values in self.points.items()}))
 
