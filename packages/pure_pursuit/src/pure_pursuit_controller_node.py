@@ -81,9 +81,6 @@ class pure_pursuit_controller(object):
         # safe shutdown
         rospy.on_shutdown(self.custom_shutdown)
 
-        self.yellow_points = list()
-        self.white_points = list()
-
         buffer_length_fallback = 10
         self.buffer_length = self.setupParameter("~buffer_length", buffer_length_fallback) # keep 50 points at a time for each color.
         self.points = collections.defaultdict(lambda: collections.deque(maxlen=self.buffer_length))
@@ -91,7 +88,7 @@ class pure_pursuit_controller(object):
         lookahead_dist_fallback = 0.5
         self.lookahead_dist = self.setupParameter("~lookahead_dist", lookahead_dist_fallback)
         
-        v_max_fallback = 0.5
+        v_max_fallback = 0.1
         self.max_speed = self.setupParameter("~v_max", v_max_fallback)
         
         delta_t_fallback = 0.1
