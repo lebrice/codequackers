@@ -1,2 +1,6 @@
-packages/**/devel
-packages/**/build
+**/devel
+**/build
+**/__pycache__
+**/*.pyc
+.mypy_cache
+.vscode
