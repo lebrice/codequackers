@@ -42,6 +42,7 @@ RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
 
 # define launch script
 ENV LAUNCHFILE "${REPO_PATH}/launch.sh"
+ENV LAST_EDIT_TIME "${LAST_EDIT_TIME}"
 
 # define command
 CMD ["bash", "-c", "${LAUNCHFILE}"]
