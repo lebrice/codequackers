@@ -38,6 +38,10 @@ def wrap(angle):
     return angle
 
 
+def clamp(value, min_value, max_value):
+    return max(min(value, max_value), min_value)
+
+
 def to_3d(point_2d):
     return np.asarray([point_2d[0], point_2d[1], 0])
 
@@ -97,7 +101,7 @@ class pure_pursuit_controller(object):
         self.lookahead_dist = self.setupParameter("~lookahead_dist", lookahead_dist_fallback)
         
         max_speed_fallback = 0.1
-        self.max_speed = self.setupParameter("~v_max", max_speed_fallback)
+        self.v_max = self.setupParameter("~v_max", max_speed_fallback)
         
         delta_t_fallback = 0.1
         self.delta_t = self.setupParameter("~delta_t", delta_t_fallback)   
@@ -119,6 +123,7 @@ class pure_pursuit_controller(object):
             f.write("v,omega,d,phi\n")
 
         self.loginfo("Initialized")
+    
     def custom_shutdown(self):
         self.loginfo("Shutting down...")
 
@@ -168,46 +173,72 @@ class pure_pursuit_controller(object):
         # self.update_past_path_point_coordinates(timer_event)
         # self.publish_path_points()
 
-        self.logdebug("Points: {}".format({color: len(values) for color, values in self.points.items()}))
-
+        self.logdebug("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
         if not self.has_points():
-            self.logwarn("Can't see any lines, just going straight at max speed.")
-            self.send_car_command(self.max_speed, 0)
-            return
-        elif not self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
-            white_centroid = self.find_point_closest_to_lookahead_distance(Color.WHITE)
-            # white_centroid = self.find_centroid(Color.WHITE)
-            if white_centroid.y > 0:
-                self.logwarn("Haven't seen the yellow line yet, but the white line is present and to the RIGHT")
+            self.logdebug("no points of any color were detected.")
+            if self.v == 0 and self.omega == 0:
+                self.logwarn("Robot is immobile and can't see any lines. Going straight at max speed.")
+                self.send_car_command(self.v_max, 0)
             else:
-                self.logwarn("Haven't seen the yellow line yet, but the white line is present and to the LEFT")
+                self.logwarn("Can't see any lines. Proceeding with same velocity and heading as before (v={}, omega={})".format(self.v, self.omega))
+                self.send_car_command(self.v, self.omega)
+            return
+        
+        elif self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
+            self.logdebug("Detected yellow and white points")
 
-            offset = (1 if white_centroid.y < 0 else -1) * self.offset
+            centroid_white = self.find_centroid(Color.WHITE)
+            centroid_yellow = self.find_centroid(Color.YELLOW)
+            target = (centroid_white + centroid_yellow) / 2
+            
+            # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
+            # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
+            # target = (best_white_point + best_yellow_point) / 2
 
+        elif self.has_points(Color.YELLOW) and not self.has_points(Color.WHITE):
+            self.logdebug("Yellow points detected, but not white ones.")
+            best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
+            target = best_yellow_point
+            target[1] += self.offset # shifted to the right.
+
+
+        elif self.has_points(Color.WHITE) and not self.has_points(Color.YELLOW):
+            self.logdebug("White points detected, but no yellow ones.")
+            # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
+            white_centroid = self.find_centroid(Color.WHITE)
+            
             target = white_centroid
-            target.y += offset
-        elif self.has_points(Color.YELLOW):
-            # target = self.find_centroid(Color.YELLOW)
-            target = self.find_point_closest_to_lookahead_distance()
-            target.y += self.offset
+            if white_centroid[1] > 0:
+                self.logwarn("Not seeing any yellow lines, but the white line is present and to the RIGHT")
+                target[1] -= self.offset # shifted to the left.
+            else:
+                self.logwarn("Not seeing any yellow lines, but the white line is present and to the LEFT")
+                target[1] += self.offset # shifted to the right.
 
         else:
-            self.logwarn("Weird, didn't fit into any of the above cases...")
-            self.logwarn("Points: {}".format({color: len(values) for color, values in self.points.items()}))
-            target = Point(1.0, 0.0)
+            self.logerror("Weird, didn't fit into any of the above cases...")
+            self.logerror("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
+            target = np.asarray([1.0, 0.0])
         
         self.logdebug("Target: {}".format(target))
-        
-        self.target = target    
+        self.target = target
 
-        target_np = point_to_np(target)
-        self.logdebug("Target: {}".format(target_np))
-        hypothenuse = np.sqrt(target_np.dot(target_np))
-        sin_alpha = target.y / hypothenuse
+        hypothenuse = np.sqrt(target.dot(target))
+        sin_alpha = target[1] / hypothenuse
         
-        v = self.max_speed
+        min_speed = 0.1
+        max_speed = 1.0
+
+        # TODO: maybe play around with changing V depending on sin_alpha.
+        v = self.v_max
+        v = clamp(v, min_speed, max_speed)
+
         omega = 2 * sin_alpha / self.lookahead_dist
         self.send_car_command(v, omega)
+
+        # clear the points we have stored.
+        self.clear_points()
+
 
     def find_point_closest_to_lookahead_distance(self, color=Color.YELLOW):
         def distance_mag(point):
@@ -219,12 +250,13 @@ class pure_pursuit_controller(object):
             distances = [abs(distance_mag(p) - mag) for p in points]
             min_index = np.argmin(distances)
             best_point = points[min_index]
-        return best_point
+        return point_to_np(best_point)
     
     def has_points(self, color=None):
-        if color is None:
-            return any(len(values) > 0 for values in self.points.values())
-        return len(self.points[color]) > 0
+        with self.points_lock:
+            if color is None:
+                return any(len(values) > 0 for values in self.points.values())
+            return len(self.points[color]) > 0
 
     def clear_points(self, timer_event):
         with self.points_lock:
@@ -273,11 +305,11 @@ class pure_pursuit_controller(object):
             else:
                 self.logdebug("Averaging points of color {}".format(color))
                 points_to_average = self.points[color]
-            x_centroid = np.mean([p.x for p in points_to_average])
-            y_centroid = np.mean([p.y for p in points_to_average])
-        centroid = Point(x=x_centroid, y=y_centroid)
-        self.centroid = centroid
-        return centroid
+            x = np.mean([p.x for p in points_to_average])
+            y = np.mean([p.y for p in points_to_average])
+        return np.asarray([x, y])
+        # centroid = Point(x=x_centroid, y=y_centroid)
+        # return centroid
         
     def send_car_command(self, v, omega):
         car_control_msg = Twist2DStamped()
