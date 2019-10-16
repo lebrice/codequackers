@@ -103,7 +103,7 @@ class pure_pursuit_controller(object):
         max_speed_fallback = 0.5
         self.v_max = self.setupParameter("~v_max", max_speed_fallback)
         
-        delta_t_fallback = 0.2
+        delta_t_fallback = 0.5
         self.delta_t = self.setupParameter("~delta_t", delta_t_fallback)   
         self.car_command_timer = rospy.Timer(rospy.Duration.from_sec(self.delta_t), self.update_car_command)
         
@@ -183,14 +183,15 @@ class pure_pursuit_controller(object):
                 self.send_car_command(self.v, self.omega)
             return
         
-        elif self.has_points(Color.YELLOW): # TODO: remove this.
-            self.loginfo("YELLOW DEBUG")
+        elif self.has_points(Color.YELLOW):
+            self.loginfo("YELLOW")
             # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
             # target = best_yellow_point
             centroid_yellow = self.find_centroid(Color.YELLOW)
             target = centroid_yellow
-            # target[1] -= 3 * self.offset # shifted to the right.
-
+            target[1] -= self.offset # shifted to the right.
+        
+        # TODO: UNUSED!
         elif self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
             self.loginfo("YELLOW AND WHITE")
 
@@ -202,13 +203,6 @@ class pure_pursuit_controller(object):
             # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
             # target = (best_white_point + best_yellow_point) / 2
 
-        elif self.has_points(Color.YELLOW) and not self.has_points(Color.WHITE):
-            self.loginfo("YELLOW")
-            # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
-            # target = best_yellow_point
-            centroid_yellow = self.find_centroid(Color.YELLOW)
-            target = centroid_yellow
-            target[1] -= self.offset # shifted to the right.
 
 
         elif not self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
