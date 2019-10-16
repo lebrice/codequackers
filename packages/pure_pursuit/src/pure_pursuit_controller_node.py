@@ -305,7 +305,7 @@ class pure_pursuit_controller(object):
         return value
 
 if __name__ == "__main__":
-    rospy.init_node("pure_pursuit_controller_node", anonymous=False, log_level=rospy.DEBUG)  # adapted to sonjas default file
+    rospy.init_node("pure_pursuit_controller_node", anonymous=False, log_level=rospy.INFO)  # adapted to sonjas default file
 
     lane_control_node = pure_pursuit_controller()
     rospy.spin()
