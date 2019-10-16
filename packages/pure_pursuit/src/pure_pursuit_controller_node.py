@@ -77,6 +77,7 @@ class pure_pursuit_controller(object):
 
     def __init__(self):
         self.node_name = rospy.get_name()
+        self.loginfo("HEYHEYHOHO")
         self.loginfo("Node Name: {}".format(self.node_name))
         
         last_edit_time = os.environ.get("LAST_EDIT_TIME", "UNKNOWN")
@@ -176,11 +177,10 @@ class pure_pursuit_controller(object):
         if not self.has_points():
             self.logwarn("NO POINTS")
             if self.v == 0 and self.omega == 0:
-                self.logwarn("Robot is immobile and can't see any lines. Going straight at max speed.")
-                self.send_car_command(self.v_max, 0)
+                self.logwarn("Robot is immobile and can't see any lines.")
             else:
                 self.logwarn("Can't see any lines. Proceeding with same velocity and heading as before (v={}, omega={})".format(self.v, self.omega))
-                self.send_car_command(self.v, self.omega)
+            self.send_car_command(self.v, self.omega)
             return
         
         elif self.has_points(Color.YELLOW):
