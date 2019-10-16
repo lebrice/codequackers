@@ -85,6 +85,7 @@ class pure_pursuit_controller(object):
         
         # Subscriptions
         self.sub_seglist_filtered = rospy.Subscriber("~seglist_filtered", SegmentList, self.new_segments_received, queue_size=1)
+        self.sub_lane_pose = rospy.Subscriber("~lane_pose", LanePose, self.new_pose_received, queue_size=1)
         # safe shutdown
         rospy.on_shutdown(self.custom_shutdown)
 
@@ -107,15 +108,23 @@ class pure_pursuit_controller(object):
 
         # self.clear_points_timer = rospy.Timer(rospy.Duration.from_sec(1), self.clear_points)
 
-        self.loginfo("Initialized")
 
         self.points_lock = Lock()
    
+        self.v = 0
+        self.omega = 0
+
+        self.plots_log_file = "brigitte_plots.csv"
+        with open(self.plots_log_file, "w") as f:
+            f.write("v,omega,d,phi\n")
+
+        self.loginfo("Initialized")
     def custom_shutdown(self):
         self.loginfo("Shutting down...")
 
         # Stop listening
         self.sub_seglist_filtered.unregister()
+        self.sub_lane_pose.unregister()
         
         # stop timer
         self.car_command_timer.shutdown()        
@@ -141,11 +150,17 @@ class pure_pursuit_controller(object):
         segments = inlier_segments_msg.segments
         self.logdebug("Received {} new segments".format(len(segments)))
         for i, segment in enumerate(segments):
-            # print(segment)
             color = Color(segment.color)
             assert color in [Color.RED, Color.YELLOW, Color.WHITE]
             with self.points_lock:
                 self.points[color].extend(segment.points)
+
+    def new_pose_received(self, lane_pose_message):
+        d = lane_pose_message.d
+        phi = lane_pose_message.phi
+        self.loginfo("Current state: v={}, omega={} d={}, phi={}".format(self.v, self.omega, d, phi))
+        with open(self.plots_log_file, "a") as f:
+            f.write("{},{},{},{}\n".format(self.v,self.omega,d,phi))
 
     def update_car_command(self, timer_event):
         self.logdebug("updating car command")
