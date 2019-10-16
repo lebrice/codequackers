@@ -336,10 +336,10 @@ class pure_pursuit_controller(object):
         rospy.logwarn("[{}] {}".format(self.node_name, s))
 
     def setupParameter(self, param_name, default_value):
-        self.logwarn("USING DEFAULT VALUE OF PARAMETER {}".format(param_name))
+        # self.logwarn("USING DEFAULT VALUE OF PARAMETER {}".format(param_name))
         # TODO: figure out how to fix this.
-        # value = rospy.get_param(param_name, default_value)
-        value = default_value
+        # value = default_value
+        value = rospy.get_param(param_name, default_value)
         rospy.set_param(param_name, value)   # Write to parameter server for transparancy
         self.loginfo("{} = {} ".format(param_name, value))
         return value
