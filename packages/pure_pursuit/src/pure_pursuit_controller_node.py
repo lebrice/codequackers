@@ -93,24 +93,22 @@ class pure_pursuit_controller(object):
         # safe shutdown
         rospy.on_shutdown(self.custom_shutdown)
 
-        buffer_length_fallback = 10
+        buffer_length_fallback = 50
         self.buffer_length = self.setupParameter("~buffer_length", buffer_length_fallback) # keep 50 points at a time for each color.
         self.points = collections.defaultdict(lambda: collections.deque(maxlen=self.buffer_length))
         
-        lookahead_dist_fallback = 0.5
+        lookahead_dist_fallback = 1.0
         self.lookahead_dist = self.setupParameter("~lookahead_dist", lookahead_dist_fallback)
         
-        max_speed_fallback = 0.1
+        max_speed_fallback = 0.5
         self.v_max = self.setupParameter("~v_max", max_speed_fallback)
         
-        delta_t_fallback = 0.1
+        delta_t_fallback = 0.2
         self.delta_t = self.setupParameter("~delta_t", delta_t_fallback)   
         self.car_command_timer = rospy.Timer(rospy.Duration.from_sec(self.delta_t), self.update_car_command)
         
         offset_fallback = 0.15
         self.offset = self.setupParameter("~offset", offset_fallback)
-
-        # self.clear_points_timer = rospy.Timer(rospy.Duration.from_sec(1), self.clear_points)
 
 
         self.points_lock = Lock()
@@ -173,9 +171,10 @@ class pure_pursuit_controller(object):
         # self.update_past_path_point_coordinates(timer_event)
         # self.publish_path_points()
 
-        self.logdebug("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
+        self.loginfo("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
+        
         if not self.has_points():
-            self.logdebug("no points of any color were detected.")
+            self.logwarn("NO POINTS")
             if self.v == 0 and self.omega == 0:
                 self.logwarn("Robot is immobile and can't see any lines. Going straight at max speed.")
                 self.send_car_command(self.v_max, 0)
@@ -184,11 +183,19 @@ class pure_pursuit_controller(object):
                 self.send_car_command(self.v, self.omega)
             return
         
-        elif self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
-            self.logdebug("Detected yellow and white points")
-
-            centroid_white = self.find_centroid(Color.WHITE)
+        elif self.has_points(Color.YELLOW): # TODO: remove this.
+            self.loginfo("YELLOW DEBUG")
+            # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
+            # target = best_yellow_point
             centroid_yellow = self.find_centroid(Color.YELLOW)
+            target = centroid_yellow
+            # target[1] -= 3 * self.offset # shifted to the right.
+
+        elif self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
+            self.loginfo("YELLOW AND WHITE")
+
+            centroid_yellow = self.find_centroid(Color.YELLOW)
+            centroid_white = self.find_centroid(Color.WHITE)
             target = (centroid_white + centroid_yellow) / 2
             
             # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
@@ -196,30 +203,27 @@ class pure_pursuit_controller(object):
             # target = (best_white_point + best_yellow_point) / 2
 
         elif self.has_points(Color.YELLOW) and not self.has_points(Color.WHITE):
-            self.logdebug("Yellow points detected, but not white ones.")
-            best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
-            target = best_yellow_point
-            target[1] += self.offset # shifted to the right.
+            self.loginfo("YELLOW")
+            # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
+            # target = best_yellow_point
+            centroid_yellow = self.find_centroid(Color.YELLOW)
+            target = centroid_yellow
+            target[1] -= self.offset # shifted to the right.
 
 
-        elif self.has_points(Color.WHITE) and not self.has_points(Color.YELLOW):
-            self.logdebug("White points detected, but no yellow ones.")
+        elif not self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
+            self.logwarn("WHITE")
             # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
             white_centroid = self.find_centroid(Color.WHITE)
-            
+            # assume the white line is always on the right.
             target = white_centroid
-            if white_centroid[1] > 0:
-                self.logwarn("Not seeing any yellow lines, but the white line is present and to the RIGHT")
-                target[1] -= self.offset # shifted to the left.
-            else:
-                self.logwarn("Not seeing any yellow lines, but the white line is present and to the LEFT")
-                target[1] += self.offset # shifted to the right.
-
+            target[1] += self.offset * 3 # shifted to the left.
         else:
-            self.logerror("Weird, didn't fit into any of the above cases...")
-            self.logerror("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
-            target = np.asarray([1.0, 0.0])
-        
+            # we only have red points.. just do whatever we were doign before.
+            self.logwarn("RED")
+            self.logwarn("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
+            return
+
         self.logdebug("Target: {}".format(target))
         self.target = target
 
@@ -230,7 +234,7 @@ class pure_pursuit_controller(object):
         max_speed = 1.0
 
         # TODO: maybe play around with changing V depending on sin_alpha.
-        v = self.v_max
+        v = self.v_max * (1 - abs(sin_alpha))
         v = clamp(v, min_speed, max_speed)
 
         omega = 2 * sin_alpha / self.lookahead_dist
@@ -258,7 +262,7 @@ class pure_pursuit_controller(object):
                 return any(len(values) > 0 for values in self.points.values())
             return len(self.points[color]) > 0
 
-    def clear_points(self, timer_event):
+    def clear_points(self):
         with self.points_lock:
             for color, point_list in self.points.items():
                 point_list.clear()
@@ -337,15 +341,11 @@ class pure_pursuit_controller(object):
     def logwarn(self, s):
         rospy.logwarn("[{}] {}".format(self.node_name, s))
 
-    def logerror(self, s):
-        rospy.logerror("[{}] {}".format(self.node_name, s))
-
     def setupParameter(self, param_name, default_value):
-        if "brigitte" in self.node_name:
-            self.logwarn("Using default value for parameter {} since we're running on the duckiebot.".format(param_name))
-            value = default_value
-        else:
-            value = rospy.get_param(param_name, default_value)
+        self.logwarn("USING DEFAULT VALUE OF PARAMETER {}".format(param_name))
+        # TODO: figure out how to fix this.
+        # value = rospy.get_param(param_name, default_value)
+        value = default_value
         rospy.set_param(param_name, value)   # Write to parameter server for transparancy
         self.loginfo("{} = {} ".format(param_name, value))
         return value
