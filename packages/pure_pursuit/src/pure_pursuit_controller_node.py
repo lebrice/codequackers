@@ -174,49 +174,51 @@ class pure_pursuit_controller(object):
 
         self.loginfo("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
         
-        if not self.has_points():
+        if not self.has_points(Color.YELLOW) and not self.has_points(Color.WHITE):
             self.logwarn("NO POINTS")
             if self.v == 0 and self.omega == 0:
                 self.logwarn("Robot is immobile and can't see any lines.")
+                self.send_car_command(0.05, 0)
             else:
                 self.logwarn("Can't see any lines. Proceeding with same velocity and heading as before (v={}, omega={})".format(self.v, self.omega))
-            self.send_car_command(self.v, self.omega)
+                self.send_car_command(self.v, self.omega)
             return
-        
-        elif self.has_points(Color.YELLOW):
-            self.loginfo("YELLOW")
-            # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
-            # target = best_yellow_point
-            centroid_yellow = self.find_centroid(Color.YELLOW)
-            target = centroid_yellow
-            target[1] -= self.offset # shifted to the right.
-        
-        # TODO: UNUSED!
-        elif self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
-            self.loginfo("YELLOW AND WHITE")
 
-            centroid_yellow = self.find_centroid(Color.YELLOW)
-            centroid_white = self.find_centroid(Color.WHITE)
-            target = (centroid_white + centroid_yellow) / 2
-            
+        ## NOTE: unused, was previously only considering yellow points.
+        # elif self.has_points(Color.YELLOW):
+        #     self.loginfo("YELLOW")
+        #     # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
+        #     # target = best_yellow_point
+        #     centroid_yellow = self.find_centroid(Color.YELLOW)
+        #     target = centroid_yellow
+        #     target[1] -= self.offset # shifted to the right.
+        else:
+            # NOTE: unused, was previously doing mean of centroids.
+            # centroid_yellow = self.find_centroid(Color.YELLOW)
+            # centroid_white = self.find_centroid(Color.WHITE)
+            # target = (centroid_white + centroid_yellow) / 2
+
+            # NOTE: unused, was previously doing mean of best points.
             # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
             # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
             # target = (best_white_point + best_yellow_point) / 2
+            
+            if self.point_count(Color.YELLOW) > self.point_count(Color.WHITE):
+                centroid_yellow = self.find_centroid(Color.YELLOW)
+                target = centroid_yellow
+                target[1] -= self.offset # shifted to the right.
+            else:
+                centroid_white = self.find_centroid(Color.WHITE)
+                target = centroid_white
+                target[1] += self.offset * 3 # shift to the left.
 
-
-
-        elif not self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
-            self.logwarn("WHITE")
-            # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
-            white_centroid = self.find_centroid(Color.WHITE)
-            # assume the white line is always on the right.
-            target = white_centroid
-            target[1] += self.offset * 3 # shifted to the left.
-        else:
-            # we only have red points.. just do whatever we were doign before.
-            self.logwarn("RED")
-            self.logwarn("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
-            return
+        # elif not self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
+        #     self.logwarn("WHITE")
+        #     # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
+        #     white_centroid = self.find_centroid(Color.WHITE)
+        #     # assume the white line is always on the right.
+        #     target = white_centroid
+        #     target[1] += self.offset * 3 # shifted to the left.
 
         self.logdebug("Target: {}".format(target))
         self.target = target
@@ -251,10 +253,13 @@ class pure_pursuit_controller(object):
         return point_to_np(best_point)
     
     def has_points(self, color=None):
+        return self.point_count(color) != 0
+
+    def point_count(self, color=None):
         with self.points_lock:
             if color is None:
-                return any(len(values) > 0 for values in self.points.values())
-            return len(self.points[color]) > 0
+                return sum(len(values) for values in self.points.values())
+            return len(self.points[color])
 
     def clear_points(self):
         with self.points_lock:
@@ -315,7 +320,7 @@ class pure_pursuit_controller(object):
             car_control_msg.header = self.header
 
         if np.isnan(v) or np.isnan(omega):
-            self.logerror("NAN car_command!")
+            self.logwarn("NAN car_command!")
             return
         self.v = v
         self.omega = omega
