@@ -210,7 +210,7 @@ class pure_pursuit_controller(object):
             else:
                 centroid_white = self.find_centroid(Color.WHITE)
                 target = centroid_white
-                target[1] += self.offset * 3 # shift to the left.
+                target[1] += self.offset # shift to the left.
 
         # elif not self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
         #     self.logwarn("WHITE")
