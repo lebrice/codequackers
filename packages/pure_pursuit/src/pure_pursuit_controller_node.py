@@ -162,13 +162,12 @@ class pure_pursuit_controller(object):
         elif not self.has_points(Color.YELLOW) and self.has_points(Color.WHITE):
             white_centroid = self.find_point_closest_to_lookahead_distance(Color.WHITE)
             # white_centroid = self.find_centroid(Color.WHITE)
-            distance_to_center = 0.15
             if white_centroid.y > 0:
                 self.logwarn("Haven't seen the yellow line yet, but the white line is present and to the RIGHT")
             else:
                 self.logwarn("Haven't seen the yellow line yet, but the white line is present and to the LEFT")
 
-            offset = (1 if white_centroid.y < 0 else -1) * distance_to_center
+            offset = (1 if white_centroid.y < 0 else -1) * self.offset
 
             target = white_centroid
             target.y += offset
