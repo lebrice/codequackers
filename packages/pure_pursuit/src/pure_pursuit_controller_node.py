@@ -102,6 +102,9 @@ class pure_pursuit_controller(object):
         self.delta_t = self.setupParameter("~delta_t", delta_t_fallback)   
         self.car_command_timer = rospy.Timer(rospy.Duration.from_sec(self.delta_t), self.update_car_command)
         
+        offset_fallback = 0.15
+        self.offset = self.setupParameter("~offset", offset_fallback)
+
         # self.clear_points_timer = rospy.Timer(rospy.Duration.from_sec(1), self.clear_points)
 
         self.loginfo("Initialized")
@@ -172,6 +175,7 @@ class pure_pursuit_controller(object):
         elif self.has_points(Color.YELLOW):
             # target = self.find_centroid(Color.YELLOW)
             target = self.find_point_closest_to_lookahead_distance()
+            target.y += self.offset
 
         else:
             self.logwarn("Weird, didn't fit into any of the above cases...")
@@ -277,8 +281,6 @@ class pure_pursuit_controller(object):
 
         self.logdebug("Sending car command: v: {} omega: {}".format(v, omega))
         self.pub_car_cmd.publish(car_control_msg)
-
-
 
     def loginfo(self, s):
         rospy.loginfo("[{}] {}".format(self.node_name, s))

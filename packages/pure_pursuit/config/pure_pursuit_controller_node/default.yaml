@@ -3,3 +3,4 @@ lookahead_dist: 0.2
 buffer_length: 10
 v_max: 0.05
 delta_t: 0.1
+offset: 0.15
