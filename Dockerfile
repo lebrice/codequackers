@@ -1,5 +1,5 @@
 # parameters
-ARG REPO_NAME="ros-repo-fabrice-normandin"
+ARG REPO_NAME="codequackers"
 
 # ==================================================>
 # ==> Do not change this code
