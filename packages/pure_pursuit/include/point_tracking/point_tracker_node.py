@@ -73,10 +73,11 @@ class PointTrackingNode():
             current_time {float} -- the current time, in seconds.
         """
         num_points = len(self.buffer)
+        max_dist_mag = self.max_distance ** 2
         for i in range(num_points):
             tracked_point = self.buffer.popleft()
-            _, _, timestamp = tracked_point
-            if current_time - timestamp <= self.memory_secs:
+            x, y, _ = tracked_point
+            if (x**2 + y**2) <= max_dist_mag:
                 self.buffer.append(tracked_point)    
 
 
