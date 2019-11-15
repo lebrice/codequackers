@@ -4,10 +4,10 @@
   <version>1.0.0</version>
   <description>TODO: Add a description of package `pure_pursuit` in `package.xml`.</description>
 
-
   <author email="steven@todo.todo">steven</author>
   <author email="syliu@mit.edu">Shih-Yuan Liu</author>
   <author email="fabrice.normandin@gmail.com">Fabrice Normandin</author>
+  <author email="anthony.courchesne@mail.mcgill.ca">Anthony Courchesne</author>
   <maintainer email='fabrice.normandin@gmail.com'>Fabrice Normandin</maintainer>
 
   <license>GPLv3</license>
