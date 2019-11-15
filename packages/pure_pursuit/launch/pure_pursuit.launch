@@ -26,6 +26,7 @@
 	<group>
 		<remap from="pure_pursuit_controller_node/lane_pose" to="lane_filter_node/lane_pose"/>
 		<!-- <remap from="pure_pursuit_controller_node/seglist_filtered" to="ground_projection/lineseglist_out"/> -->
+		<remap from="pure_pursuit_controller_node/follow_point" to="duckiebot_visualizer/follow_point"/>
 		<remap from="pure_pursuit_controller_node/path_points" to="duckiebot_visualizer/path_points"/>
 		<remap from="pure_pursuit_controller_node/seglist_filtered" to="lane_filter_node/seglist_filtered"/>
 		<remap from="pure_pursuit_controller_node/car_cmd" to="car_cmd_switch_node/cmd"/>

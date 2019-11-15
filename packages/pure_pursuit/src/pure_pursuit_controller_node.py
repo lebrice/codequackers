@@ -10,7 +10,7 @@ import numpy as np
 import rospy
 from duckietown_msgs.msg import (BoolStamped, FSMState, LanePose,
                                  Segment, SegmentList, StopLineReading,
-                                 Twist2DStamped, WheelsCmdStamped)
+                                 Twist2DStamped, WheelsCmdStamped, Vector2D)
 # from duckietown_msgs.msg import PointList
 from geometry_msgs.msg import Point
 
@@ -87,6 +87,7 @@ class pure_pursuit_controller(object):
         # Publication
         self.pub_car_cmd = rospy.Publisher("~car_cmd", Twist2DStamped, queue_size=1)
         # self.pub_path_points = rospy.Publisher("~path_points", PointList, queue_size=1)
+        self.pub_follow_point = rospy.Publisher("~follow_point", Vector2D, queue_size=1)
         
         # Subscriptions
         self.sub_seglist_filtered = rospy.Subscriber("~seglist_filtered", SegmentList, self.new_segments_received, queue_size=1)
@@ -222,6 +223,10 @@ class pure_pursuit_controller(object):
 
         self.logdebug("Target: {}".format(target))
         self.target = target
+        target_msg = Vector2D()
+        target_msg.x = target[0]
+        target_msg.y = target[1]
+        self.pub_follow_point.publish(target_msg)
 
         hypothenuse = np.sqrt(target.dot(target))
         sin_alpha = target[1] / hypothenuse
