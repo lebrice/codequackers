@@ -23,7 +23,7 @@ def wrap(angle):
     assert (- np.pi) < angle <= np.pi
     return angle
 
-def R(theta):
+def rotation(theta):
     return np.array([
         [np.cos(theta), -np.sin(theta)],
         [np.sin(theta),  np.cos(theta)],
@@ -37,7 +37,7 @@ def cos_and_sin(x):
     ])
 
 
-def TR(theta_rad, Ax, Ay):
+def translation_and_rotation(theta_rad, Ax, Ay):
     return np.array([
         [np.cos(theta_rad), -np.sin(theta_rad), Ax],
         [np.sin(theta_rad),  np.cos(theta_rad), Ay],
