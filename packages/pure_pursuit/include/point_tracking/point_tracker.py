@@ -99,6 +99,8 @@ class PointTracker(object):
             dt = current_time - self.last_update_time
             v = twist_msg.v
             w = twist_msg.omega
+            # TODO: only update the location of points that are older than dt!
+
             self._update_points_location(dt, v, w)
             # perform a clustering to create the observations.
             self.centroids = self._clustering()
@@ -158,8 +160,14 @@ class PointTracker(object):
         if not self.buffer:
             # buffer is empty.
             return
-
         points = np.array(self.buffer, dtype=float)
+        
+        current_time = rospy.get_time()
+        # TODO: only update the location of points that are older than dt!
+        to_update = current_time - points[:,2] > dt
+        points_to_update = points[to_update]
+        point_not_to_udpate = points[~to_update]
+        
         
         if w == 0:
             # going in a straight line.
