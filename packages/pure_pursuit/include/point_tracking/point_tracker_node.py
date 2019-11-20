@@ -163,19 +163,22 @@ class PointTrackingNode():
             # buffer is empty.
             return
 
-        # change in heading: alpha = omega * dt
-        alpha = dt * w
-        # displacement in x and y direction:
-        # x direction is forward in robot frame.
-        # Y direction is left in the robot frame.
-        # alpha is the angle from the forward x axis going left, reaching 90 degrees at the Y axis.
-        # (hence alpha is following the right-hand rule with respect to the Z axis, which points up)
-        dx = v * np.cos(alpha)
-        dy = v * np.sin(alpha)
-
-        projection = translation_and_rotation(-alpha, -dx, -dy)
-        
         points = np.array(self.buffer, dtype=float)
-        points[:, :2] = np.matmul(points[:, :2], projection)
         
-        
+        if w == 0:
+            # going in a straight line.
+            displacement = dt * v
+            points[:, 0] -= displacement
+        else:
+            angle_along_arc = dt * w
+            radius_of_curvature = np.abs(v / w)
+            dx = radius_of_curvature * np.sin(angle_along_arc)
+            dy = radius_of_curvature * (1 - np.cos(angle_along_arc))
+            # print("dx:", dx, "dy:", dy)
+            points[:, 0] -= dx
+            points[:, 1] -= dy
+
+            rotation_matrix = rotation(angle_along_arc)
+            points[:, :2] = np.matmul(points[:, :2], rotation_matrix)
+
+        self.buffer = deque(points.tolist(), maxlen=self.max_buffer_length)   
