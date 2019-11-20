@@ -10,14 +10,13 @@ import json
 
 import rospy
 from collections import deque
-from abc import ABCMeta, abstractmethod
 import copy
 
 from .utils import cos_and_sin, rotation, translation_and_rotation
 from threading import Lock
 from scipy.cluster.vq import kmeans
 
-class PointTrackingNode():
+class PointTracker(object):
     """
     Keeps track of the movement of points over a short period of time.
 
@@ -28,7 +27,6 @@ class PointTrackingNode():
     (hence alpha is following the right-hand rule with respect to the Z axis, which points up)
         
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self, num_points_to_observe = 10, memory_secs=1.0, max_distance=5.0, max_buffer_size=None):
         """Initialises the PointTrackingNode.
@@ -52,10 +50,6 @@ class PointTrackingNode():
         self.max_distance = max_distance
         self.max_buffer_length = max_buffer_size
         
-        # subscribe to the car_cmd, tu update the location of the points in the buffer
-        # TODO: subscribe to the forward kinematics node, if that can help.
-        self.sub_velocity = rospy.Subscriber("~car_cmd", Twist2DStamped, self.update_points_callback)
-
         # A lock used to prevent updating the points while it is being updated.
         self.buffer_lock = Lock()
         # a buffer of length max_buffer_length containing tuples of the form (x: float, y: float, timestamp: float)
@@ -92,10 +86,12 @@ class PointTrackingNode():
         Arguments:
             twist_msg {twist_msg} -- a message object which contains the tangential (v) and angular (omega) velocities of the robot.
         """
+
+        current_time = rospy.get_time()
         if self.last_update_time is None:
+            self.last_update_time = current_time
             return
         with self.buffer_lock:
-            current_time = rospy.get_time()
             # first get rid of points that are too old
             self._remove_old_points(current_time)
             self._remove_distant_points(current_time)

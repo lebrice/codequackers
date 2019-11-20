@@ -17,38 +17,40 @@ from geometry_msgs.msg import Point
 import os
 import datetime
 
-from packages.pure_pursuit.include.utils import *
+from utils import *
+from packages.pure_pursuit.include.point_tracking import PointTracker
 
 class Color(enum.Enum):
     WHITE = Segment.WHITE
     YELLOW = Segment.YELLOW
     RED = Segment.RED
 
-class pure_pursuit_controller(object):
+class pure_pursuit_controller_node_better(object):
 
     def __init__(self):
         self.node_name = rospy.get_name()
-        self.loginfo("HEYHEYHOHO")
         self.loginfo("Node Name: {}".format(self.node_name))
-        
-        last_edit_time = os.environ.get("LAST_EDIT_TIME", "UNKNOWN")
-        self.logwarn("This code was last edited on {}".format(last_edit_time))
-        
+                
         self.header = None
+        
         # Publication
         self.pub_car_cmd = rospy.Publisher("~car_cmd", Twist2DStamped, queue_size=1)
+        # TODO: publish the path points markers to be viewed in RVIZ.
         # self.pub_path_points = rospy.Publisher("~path_points", PointList, queue_size=1)
         
+        # Trackers for yellow and white points.
+        self.yellow_points_tracker = PointTracker()
+        self.white_points_tracker = PointTracker()
+
         # Subscriptions
         self.sub_seglist_filtered = rospy.Subscriber("~seglist_filtered", SegmentList, self.new_segments_received, queue_size=1)
         self.sub_lane_pose = rospy.Subscriber("~lane_pose", LanePose, self.new_pose_received, queue_size=1)
-        # safe shutdown
-        rospy.on_shutdown(self.custom_shutdown)
+         # subscribe to the car_cmd, tu update the location of the points in the trackers' buffers.
+        # TODO: subscribe to the forward kinematics node, if that can help.
+        # TODO: make sure there isn't some weird feedback happening with the published topic of the same name.
+        self.sub_update_trackers = rospy.Subscriber("~car_cmd", Twist2DStamped, self.update_tackers)
 
-        buffer_length_fallback = 50
-        self.buffer_length = self.setupParameter("~buffer_length", buffer_length_fallback) # keep 50 points at a time for each color.
-        self.points = collections.defaultdict(lambda: collections.deque(maxlen=self.buffer_length))
-        
+        # Parameters:
         lookahead_dist_fallback = 1.0
         self.lookahead_dist = self.setupParameter("~lookahead_dist", lookahead_dist_fallback)
         
@@ -62,18 +64,25 @@ class pure_pursuit_controller(object):
         offset_fallback = 0.15
         self.offset = self.setupParameter("~offset", offset_fallback)
 
-
-        self.points_lock = Lock()
-   
         self.v = 0
         self.omega = 0
 
-        self.plots_log_file = "brigitte_plots.csv"
-        with open(self.plots_log_file, "w") as f:
-            f.write("v,omega,d,phi\n")
-
+        # safe shutdown
+        rospy.on_shutdown(self.custom_shutdown)              
         self.loginfo("Initialized")
     
+    def update_trackers(self, twist_msg):
+        """Update the estimated position of the stored points given the commanded velocities
+        
+        Arguments:
+            twist_msg {twist_msg} -- a message object which contains the tangential (v) and angular (omega) velocities of the robot.
+        """
+        self.yellow_points_tracker.update_points_callback(twist_msg)
+        self.white_points_tracker.update_points_callback(twist_msg)
+
+
+
+
     def custom_shutdown(self):
         self.loginfo("Shutting down...")
 
@@ -104,11 +113,16 @@ class pure_pursuit_controller(object):
         self.header = inlier_segments_msg.header
         segments = inlier_segments_msg.segments
         self.logdebug("Received {} new segments".format(len(segments)))
+        
+        points = collections.defaultdict(list)
         for i, segment in enumerate(segments):
             color = Color(segment.color)
             assert color in [Color.RED, Color.YELLOW, Color.WHITE]
-            with self.points_lock:
-                self.points[color].extend(segment.points)
+            points[color].extend(segment.points)
+        
+        self.yellow_points_tracker.add_points(points[Color.YELLOW])
+        self.white_points_tracker.add_points(points[Color.WHITE])
+       
 
     def new_pose_received(self, lane_pose_message):
         d = lane_pose_message.d
@@ -125,7 +139,10 @@ class pure_pursuit_controller(object):
 
         self.loginfo("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
         
-        if not self.has_points(Color.YELLOW) and not self.has_points(Color.WHITE):
+        yellow_points = self.yellow_points_tracker.tracked_points
+        white_points = self.white_points_tracker.tracked_points
+
+        if len(yellow_points) == 0 and len(white_points) == 0:
             self.logwarn("NO POINTS")
             if self.v == 0 and self.omega == 0:
                 self.logwarn("Robot is immobile and can't see any lines.")
@@ -154,12 +171,12 @@ class pure_pursuit_controller(object):
             # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
             # target = (best_white_point + best_yellow_point) / 2
             
-            if self.point_count(Color.YELLOW) > self.point_count(Color.WHITE):
-                centroid_yellow = self.find_centroid(Color.YELLOW)
+            if len(yellow_points) > len(white_points):
+                centroid_yellow = self.find_centroid(yellow_points)
                 target = centroid_yellow
                 target[1] -= self.offset # shifted to the right.
             else:
-                centroid_white = self.find_centroid(Color.WHITE)
+                centroid_white = self.find_centroid(white_points)
                 target = centroid_white
                 target[1] += self.offset # shift to the left.
 
@@ -251,20 +268,9 @@ class pure_pursuit_controller(object):
                 self.points[color] = collections.deque([update_point(p) for p in old_points_buffer])
         self.logdebug("Updated Points successfully.")
 
-    def find_centroid(self, color=None):
-        with self.points_lock:
-            if color is None:
-                self.logdebug("Averaging points of all colors")
-                points_to_average = list(itertools.chain(*self.points.values()))
-            else:
-                self.logdebug("Averaging points of color {}".format(color))
-                points_to_average = self.points[color]
-            x = np.mean([p.x for p in points_to_average])
-            y = np.mean([p.y for p in points_to_average])
-        return np.asarray([x, y])
-        # centroid = Point(x=x_centroid, y=y_centroid)
-        # return centroid
-        
+    def find_centroid(self, points_to_average):
+        return np.mean(points_to_average, axis=0)
+
     def send_car_command(self, v, omega):
         car_control_msg = Twist2DStamped()
         if self.header is not None:
@@ -301,7 +307,7 @@ class pure_pursuit_controller(object):
         return value
 
 if __name__ == "__main__":
-    rospy.init_node("pure_pursuit_controller_node", anonymous=False, log_level=rospy.INFO)  # adapted to sonjas default file
+    rospy.init_node("pure_pursuit_controller_node_better", anonymous=False, log_level=rospy.INFO)  # adapted to sonjas default file
 
-    lane_control_node = pure_pursuit_controller()
+    lane_control_node = pure_pursuit_controller_node_better()
     rospy.spin()
