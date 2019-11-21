@@ -8,7 +8,6 @@
 	<!-- start basic args -->
 	<include file="$(find duckietown_demos)/launch/master.launch">
 		<arg name="veh" value="$(arg veh)"/>
-		<arg name="visualization" default="true" />
 		<!--arg name="verbose" value="$(arg verbose)" /-->
     	<arg name="/camera/raw" default="true" />
 		<arg name="param_file_name" default="default" />
@@ -20,6 +19,8 @@
 		<arg name="vehicle_avoidance" default="false"/>
 		<!-- ADDED: turn off the lane_controller node. -->
 		<arg name="/lane_following/lane_controller" default="false"/>
+		<!-- ADDED: turn off the duckiebot_vizualizer node. -->
+		<arg name="visualization" default="false"/>
 	</include>
 	
 	<!-- My Pure Pursuit Lane controller -->
@@ -36,6 +37,15 @@
 			<arg name="veh" value="$(arg veh)"/>
 			<!-- TODO: use this to pass a specific parameter file. (not needed here.) -->
 			<arg name="param_file_name" value="brigitte"/>
+		</include>
+	</group>
+
+	<!-- Local Duckiebot Visualizer -->
+	<group>
+		<remap from="duckiebot_visualizer/segment_list" to="ground_projection/lineseglist_out"/>
+		<remap from="duckiebot_visualizer/segment_list_filtered" to="lane_filter_node/seglist_filtered"/>
+		<include file="$(find duckiebot_visualizer_local)/launch/duckiebot_visualizer.launch">
+			<arg name="veh" value="$(arg veh)" />
 		</include>
 	</group>
 
