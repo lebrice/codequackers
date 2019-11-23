@@ -30,6 +30,8 @@ def R(theta):
         [np.sin(theta),  np.cos(theta)],
     ])
 
+def rotation(theta):
+    return R(theta)
 
 def cos_and_sin(x):
     return np.array([
@@ -37,10 +39,22 @@ def cos_and_sin(x):
         np.sin(x),
     ])
 
-
-def TR(theta_rad, Ax, Ay):
+def rotation_then_translation(theta_rad, Ax, Ay):
     return np.array([
         [np.cos(theta_rad), -np.sin(theta_rad), Ax],
         [np.sin(theta_rad),  np.cos(theta_rad), Ay],
         [0, 0, 1],
     ])
+
+def point_to_np(point):
+    return np.array([
+        point.x,
+        point.y,
+        point.z,
+    ])
+
+def points_to_np(points_list):
+    return np.array([
+        [point.x, point.y, point.z] for point in points_list
+    ])
+
