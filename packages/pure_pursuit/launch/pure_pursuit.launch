@@ -49,4 +49,11 @@
 		</include>
 	</group>
 
+	<!-- Vehicle detection node -->
+	<group>
+		<remap from="/default/vehicle_detection_node/image" to="camera_node/image/compressed"/>
+		<include file="$(find pure_pursuit)/launch/vehicle_detection.launch">
+			<arg name="veh" value="$(arg veh)" />
+		</include>
+	</group>
 </launch>
