@@ -17,7 +17,7 @@ from geometry_msgs.msg import Point
 import os
 import datetime
 
-from packages.pure_pursuit.include.utils import *
+from utils import *
 
 class Color(enum.Enum):
     WHITE = Segment.WHITE
@@ -187,7 +187,7 @@ class pure_pursuit_controller(object):
 
         # TODO: maybe play around with changing V depending on sin_alpha.
         v = self.v_max * (1 - abs(sin_alpha))
-        v = clamp(v, min_speed, max_speed)
+        v = np.clip(v, min_speed, max_speed)
 
         omega = 2 * sin_alpha / self.lookahead_dist
         self.send_car_command(v, omega)

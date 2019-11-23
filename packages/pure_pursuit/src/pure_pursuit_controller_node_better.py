@@ -18,7 +18,7 @@ import os
 import datetime
 
 from utils import *
-from packages.pure_pursuit.include.point_tracking import PointTracker
+from point_tracking import PointTracker
 
 class Color(enum.Enum):
     WHITE = Segment.WHITE
