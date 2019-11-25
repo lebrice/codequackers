@@ -68,6 +68,12 @@ class PointTracker(object):
             return np.copy(self.centroids)
         else:
             return np.array([], dtype=float)
+    
+    @property
+    def buffer_length(self):
+        """Returns the number of points currently in the buffer."""
+        with self.buffer_lock:
+            return len(self.buffer)
 
     def add_points(self, points_to_add):
         """Adds points to the 'points' attribute to be tracked.
@@ -169,23 +175,25 @@ class PointTracker(object):
         # TODO: only update the location of points that are older than dt!
         to_update = current_time - points[:,2] > dt
 
-        # points_to_update = points[to_update]
-        # point_not_to_udpate = points[~to_update]
+        points_to_update = points[to_update]
+        points_not_to_update = points[~to_update]
 
         if w == 0:
             # going in a straight line.
             displacement = dt * v
-            points[:, 0] -= displacement
+            points_to_update[:, 0] -= displacement
         else:
             angle_along_arc = dt * w
             radius_of_curvature = np.abs(v / w)
             dx = radius_of_curvature * np.sin(angle_along_arc)
             dy = radius_of_curvature * (1 - np.cos(angle_along_arc))
             # print("dx:", dx, "dy:", dy)
-            points[:, 0] -= dx
-            points[:, 1] -= dy
+            points_to_update[:, 0] -= dx
+            points_to_update[:, 1] -= dy
 
             rotation_matrix = rotation(angle_along_arc)
-            points[:, :2] = np.matmul(points[:, :2], rotation_matrix)
+            points_to_update[:, :2] = np.matmul(points_to_update[:, :2], rotation_matrix)
+
+        points = np.concatenate([points_not_to_update, points_to_update], axis=0)
 
         self.buffer = deque(points.tolist(), maxlen=self.max_buffer_length)   

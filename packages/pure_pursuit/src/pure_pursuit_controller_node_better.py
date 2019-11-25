@@ -43,8 +43,8 @@ class pure_pursuit_controller_node_better(object):
         self.pub_filtered_white_points  = rospy.Publisher("~filtered_white_points",  Polygon, queue_size=1)
         
         # Trackers for yellow and white points.
-        self.yellow_points_tracker = PointTracker()
-        self.white_points_tracker = PointTracker()
+        self.yellow_points_tracker = PointTracker(num_points_to_observe=5, memory_secs=1.0, max_distance=5.0, max_buffer_size=None)
+        self.white_points_tracker  = PointTracker(num_points_to_observe=5, memory_secs=1.0, max_distance=5.0, max_buffer_size=None)
 
         # Subscriptions
         self.sub_seglist_filtered = rospy.Subscriber("~seglist_filtered", SegmentList, self.new_segments_received, queue_size=1)
@@ -83,6 +83,7 @@ class pure_pursuit_controller_node_better(object):
         """
         self.yellow_points_tracker.update_points_callback(twist_msg)
         self.white_points_tracker.update_points_callback(twist_msg)
+        self.loginfo("White point tracker has {} points and Yellow PointTracker has {}.".format(self.white_points_tracker.buffer_length, self.yellow_points_tracker.buffer_length))
 
     def custom_shutdown(self):
         self.loginfo("Shutting down...")
@@ -107,7 +108,7 @@ class pure_pursuit_controller_node_better(object):
         filtered_points_msg.points = [
             Point32(p[0], p[1], 0.) for p in yellow_points
         ]
-        self.loginfo("Publishing {} new yellow points".format(len(filtered_points_msg.points)))
+        self.logdebug("Publishing {} new yellow points".format(len(filtered_points_msg.points)))
         self.pub_filtered_yellow_points.publish(filtered_points_msg)
 
     def publish_filtered_white_points(self, white_points):
@@ -116,7 +117,7 @@ class pure_pursuit_controller_node_better(object):
         filtered_points_msg.points = [
             Point32(p[0], p[1], 0.) for p in white_points
         ]
-        self.loginfo("Publishing {} new white points".format(len(filtered_points_msg.points)))
+        self.logdebug("Publishing {} new white points".format(len(filtered_points_msg.points)))
         self.pub_filtered_white_points.publish(filtered_points_msg)
 
 
@@ -138,7 +139,7 @@ class pure_pursuit_controller_node_better(object):
     def new_pose_received(self, lane_pose_message):
         d = lane_pose_message.d
         phi = lane_pose_message.phi
-        self.loginfo("Current state: v={}, omega={} d={}, phi={}".format(self.v, self.omega, d, phi))
+        self.logdebug("Current state: v={}, omega={} d={}, phi={}".format(self.v, self.omega, d, phi))
 
 
     def update_car_command(self, timer_event):

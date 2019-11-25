@@ -94,24 +94,24 @@ class DuckieBotVisualizer(object):
         marker.pose.position.z = 0 
         marker.pose.position.x = follow_point_msg.x
         marker.pose.position.y = follow_point_msg.y
-        marker.color.a = 1.0 
-        marker.scale.x = 0.2 
-        marker.scale.y = 0.2 
-        marker.scale.z = 0.1 
+        marker.color.a = 1.0
+        marker.scale.x = 0.1
+        marker.scale.y = 0.1
+        marker.scale.z = 0.1
         marker.color.r = 0 
         marker.color.g = 1 
         marker.color.b = 0 
         self.pub_follow_point.publish(marker)
 
     def view_filtered_yellow_points(self, filtered_points_msg):
-        print("RECEIVED YELLOW POINTS.", len(filtered_points_msg.points))
+        self.logdebug("RECEIVED {} YELLOW POINTS".format(len(filtered_points_msg.points)))
         marker_array = MarkerArray()
         marker = self.pointList2Marker(filtered_points_msg, color="YELLOW")
         marker_array.markers.append(marker)
         self.pub_filtered_yellow_points_markers.publish(marker_array)
 
     def view_filtered_white_points(self, filtered_points_msg):
-        print("RECEIVED WHITE POINTS:", len(filtered_points_msg.points))
+        self.logdebug("RECEIVED {} WHITE POINTS".format(len(filtered_points_msg.points)))
         marker_array = MarkerArray()
         marker = self.pointList2Marker(filtered_points_msg, color="WHITE")
         marker_array.markers.append(marker)
@@ -140,6 +140,12 @@ class DuckieBotVisualizer(object):
         # rospy.loginfo("[%s] Number of points %s" %(self.node_name,len(marker.points)))
         return marker
 
+    def loginfo(self, message):
+        rospy.loginfo("[{}] {}".format(self.node_name, message))
+
+
+    def logdebug(self, message):
+        rospy.logdebug("[{}] {}".format(self.node_name, message))
 
     def pointList2Marker(self, point_list_msg, color="WHITE"):
         marker = Marker()
@@ -162,13 +168,13 @@ class DuckieBotVisualizer(object):
         color = self.filtered_colors[seg_color]
 
         for point_1, point_2 in pairs(sorted_points):
-            print("Adding line between points:", point_1, point_2)
+            # print("Adding line between points:", point_1, point_2)
             marker.points.append(point_1)
             marker.points.append(point_2)
             marker.colors.append(color)
             marker.colors.append(color)
 
-        rospy.loginfo("[%s] Number of points %s" %(self.node_name,len(marker.points)))
+        rospy.logdebug("[%s] Number of points %s" %(self.node_name,len(marker.points)))
         return marker
 
 
