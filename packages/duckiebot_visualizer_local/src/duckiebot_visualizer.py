@@ -6,7 +6,24 @@ from duckietown_msgs.msg import Segment, SegmentList, Vector2D
 from geometry_msgs.msg import Point, Point32, Polygon
 from visualization_msgs.msg import Marker, MarkerArray
 
+def pairs(iterable):
+    """Yields pairs from an iterable.
+    
+    Args:
+        iterable (Iterable[Item]): a list of items.
+    
+    Yields:
+        [Tuple[Item, Item]]: neighbouring pairs of items from the iterable.
 
+    >>> list(pairs([1, 2, 3]))
+    [(1, 2), (2, 3)]            
+    """
+    previous = None
+    for item in iterable:
+        current = item
+        if previous is not None:
+            yield previous, current
+        previous = current
 
 class DuckieBotVisualizer(object):
     def __init__(self):
@@ -33,9 +50,14 @@ class DuckieBotVisualizer(object):
         # self.timer = rospy.Timer(rospy.Duration.from_sec(self.pub_timestep),self.cbTimer)
 
         self.seg_color_dict = dict()
-        self.seg_color_dict[Segment.WHITE] = ColorRGBA(r=1.0,g=1.0,b=1.0,a=1.0)
-        self.seg_color_dict[Segment.YELLOW] = ColorRGBA(r=1.0,g=1.0,b=0.0,a=1.0)
-        self.seg_color_dict[Segment.RED] = ColorRGBA(r=1.0,g=0.0,b=0.0,a=1.0)
+        self.seg_color_dict[Segment.WHITE] =  ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0)
+        self.seg_color_dict[Segment.YELLOW] = ColorRGBA(r=1.0, g=1.0, b=0.0, a=1.0)
+        self.seg_color_dict[Segment.RED] =    ColorRGBA(r=1.0, g=0.0, b=0.0, a=1.0)
+
+        self.filtered_colors = dict()
+        self.filtered_colors[Segment.YELLOW]  = ColorRGBA(r=1.00, g=0.50, b=0.00, a=1.0) # orange
+        self.filtered_colors[Segment.WHITE]   = ColorRGBA(r=0.75, g=0.75, b=0.75, a=1.0) # grey
+
 
         # Setup subscriber
         self.sub_seg_list = rospy.Subscriber("~segment_list", SegmentList, self.cbSegList)
@@ -50,13 +72,13 @@ class DuckieBotVisualizer(object):
     def cbSegList(self,seg_list_msg):
         marker_array = MarkerArray()
         marker_array.markers.append(self.segList2Marker(seg_list_msg))
-        # rospy.loginfo("[%s] publishing %s marker."%(self.node_name,len(marker_array.markers)))
+        rospy.logdebug("[%s] publishing %s marker."%(self.node_name,len(marker_array.markers)))
         self.pub_seg_list.publish(marker_array)
 
     def cbSegListFiltered(self,seg_list_msg):
         marker_array = MarkerArray()
         marker_array.markers.append(self.segList2Marker(seg_list_msg))
-        # rospy.loginfo("[%s] publishing %s marker."%(self.node_name,len(marker_array.markers)))
+        rospy.logdebug("[%s] publishing %s marker."%(self.node_name,len(marker_array.markers)))
         self.pub_seg_list_filtered.publish(marker_array)
         
     def viewFollowPoint(self,follow_point_msg):
@@ -93,7 +115,7 @@ class DuckieBotVisualizer(object):
         marker_array = MarkerArray()
         marker = self.pointList2Marker(filtered_points_msg, color="WHITE")
         marker_array.markers.append(marker)
-        # self.pub_filtered_white_points_markers.publish(marker_array)
+        self.pub_filtered_white_points_markers.publish(marker_array)
 
     def segList2Marker(self,seg_list_msg):
         marker = Marker()
@@ -132,29 +154,17 @@ class DuckieBotVisualizer(object):
         marker.scale.x = 0.02
 
         points = point_list_msg.points
+        
+        
+                
+        sorted_points = sorted(points, key=lambda point: point.x)
+        seg_color = Segment.WHITE if color == "WHITE" else Segment.YELLOW
+        color = self.filtered_colors[seg_color]
 
-        def path_segments(points):
-            def distance_to_robot(point):
-                return point.x ** 2 + point.y ** 2
-
-            previous = None
-            for point in sorted(points, key=distance_to_robot):
-                if previous is None:
-                    previous = point
-                else:
-                    seg = Segment()
-                    seg.points.append(previous)
-                    seg.points.append(point)
-                    seg.color = Segment.WHITE if color == "WHITE" else Segment.YELLOW
-                    yield seg
-                    previous = point
-
-        for seg in path_segments(points):
-            # point_start = seg.points[0]
-            # point_end = seg.points[1]
-            marker.points.append(seg.points[0])
-            marker.points.append(seg.points[1])
-            color = self.seg_color_dict[seg.color]
+        for point_1, point_2 in pairs(sorted_points):
+            print("Adding line between points:", point_1, point_2)
+            marker.points.append(point_1)
+            marker.points.append(point_2)
             marker.colors.append(color)
             marker.colors.append(color)
 
