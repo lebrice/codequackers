@@ -21,7 +21,7 @@
 		<!-- ADDED: turn off the lane_controller node. -->
 		<arg name="/lane_following/lane_controller" default="false"/>
 		<!-- ADDED: turn off the duckiebot_vizualizer node. -->
-		<arg name="visualization" default="false"/>
+		<arg name="visualization" value="false"/>
 		<!-- ADDED: turn off fsm node-->
 		<arg name="fsm" default="false"/>
 	</include>
@@ -30,14 +30,19 @@
 	<group>
 		<remap from="pure_pursuit_controller_node/lane_pose" to="lane_filter_node/lane_pose"/>
 		<!-- <remap from="pure_pursuit_controller_node/seglist_filtered" to="ground_projection/lineseglist_out"/> -->
-		<remap from="pure_pursuit_controller_node/follow_point" to="duckiebot_visualizer/follow_point"/>
-		<remap from="pure_pursuit_controller_node/path_points" to="duckiebot_visualizer/path_points"/>
+		
 		<remap from="pure_pursuit_controller_node/seglist_filtered" to="lane_filter_node/seglist_filtered"/>
 		<remap from="pure_pursuit_controller_node/car_cmd" to="car_cmd_switch_node/cmd"/>
 		<!-- <remap from="pure_pursuit_controller_node/car_cmd" to="lane_controller_node/car_cmd"/> -->
 
 		<include file="$(find pure_pursuit)/launch/pure_pursuit_controller_node.launch">
 			<arg name="veh" value="$(arg veh)"/>
+
+			<arg name="node_name" value="pure_pursuit_controller_node"/>
+			<!-- Used to choose wether to use the regular pure-pursuit or the 'enhanced' one. -->
+			<arg name="node_script" value="pure_pursuit_controller_node_better"/>
+			<!-- <arg name="node_script" value="pure_pursuit_controller_node"/> -->
+
 			<!-- TODO: use this to pass a specific parameter file. (not needed here.) -->
 			<arg name="param_file_name" value="brigitte"/>
 		</include>
@@ -45,8 +50,12 @@
 
 	<!-- Local Duckiebot Visualizer -->
 	<group>
+		<remap from="duckiebot_visualizer/follow_point" to="pure_pursuit_controller_node/follow_point"/>
 		<remap from="duckiebot_visualizer/segment_list" to="ground_projection/lineseglist_out"/>
 		<remap from="duckiebot_visualizer/segment_list_filtered" to="lane_filter_node/seglist_filtered"/>
+		<remap from="duckiebot_visualizer/segment_list_filtered" to="lane_filter_node/seglist_filtered"/>
+		<remap from="duckiebot_visualizer/filtered_yellow_points" to="pure_pursuit_controller_node/filtered_yellow_points"/>
+		<remap from="duckiebot_visualizer/filtered_white_points"  to="pure_pursuit_controller_node/filtered_white_points"/>
 		<include file="$(find duckiebot_visualizer_local)/launch/duckiebot_visualizer.launch">
 			<arg name="veh" value="$(arg veh)" />
 		</include>

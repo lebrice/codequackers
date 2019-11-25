@@ -12,7 +12,8 @@ import rospy
 from collections import deque
 import copy
 
-from .utils import cos_and_sin, rotation, translation_and_rotation
+from utils import *
+
 from threading import Lock
 from scipy.cluster.vq import kmeans
 
@@ -66,7 +67,7 @@ class PointTracker(object):
         if self.centroids is not None:
             return np.copy(self.centroids)
         else:
-            return np.array(dtype=float)
+            return np.array([], dtype=float)
 
     def add_points(self, points_to_add):
         """Adds points to the 'points' attribute to be tracked.
@@ -78,6 +79,8 @@ class PointTracker(object):
         """
         with self.buffer_lock:
             current_time = rospy.get_time()
+            if isinstance(points_to_add, list):
+                points_to_add = points_to_np(points_to_add)
             self.buffer.extend((point[0], point[1], current_time) for point in points_to_add)
 
     def update_points_callback(self, twist_msg):
@@ -94,7 +97,7 @@ class PointTracker(object):
         with self.buffer_lock:
             # first get rid of points that are too old
             self._remove_old_points(current_time)
-            self._remove_distant_points(current_time)
+            self._remove_distant_points()
             # update the points position using the received velocity.
             dt = current_time - self.last_update_time
             v = twist_msg.v
@@ -165,10 +168,10 @@ class PointTracker(object):
         current_time = rospy.get_time()
         # TODO: only update the location of points that are older than dt!
         to_update = current_time - points[:,2] > dt
-        points_to_update = points[to_update]
-        point_not_to_udpate = points[~to_update]
-        
-        
+
+        # points_to_update = points[to_update]
+        # point_not_to_udpate = points[~to_update]
+
         if w == 0:
             # going in a straight line.
             displacement = dt * v

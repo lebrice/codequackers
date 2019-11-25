@@ -1,0 +1,6 @@
+#pure_pursuit/pure_pursuit_controller_node
+lookahead_dist: 1.0
+buffer_length: 50
+v_max: 0.5
+delta_t: 0.5
+offset: 0.15
