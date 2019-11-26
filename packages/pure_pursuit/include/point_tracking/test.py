@@ -6,14 +6,19 @@ from scipy.cluster.vq import kmeans
 centroids = None
 num_points_to_observe = 5
 
-from utils import rotation
+
+def rotation(theta):
+    return np.array([
+        [np.cos(theta), -np.sin(theta)],
+        [np.sin(theta),  np.cos(theta)],
+    ])
 
 
 p0 = (0, 0, 123123.1)
 p1 = (0, 1, 123123.2)
 p2 = (1, 0, 123123.3)
 
-buffer = deque([p0])
+buffer = deque([p0, p1, p2])
 points = np.array(buffer, dtype=float)
 
 
@@ -35,19 +40,14 @@ def update(points, dt, v, w):
         points[:, :2] = points[:, :2] @ rotation_matrix
     return points
 
-
-p0 = (0, 0, 123123.1)
-p1 = (0, 1, 123123.2)
-p2 = (1, 0, 123123.3)
-
-buffer = deque([p0])
-points = np.array(buffer, dtype=float)
-
-w = 2 * np.pi
-v = 2 * np.pi
+w = 0.001
+v = 1
 steps = 4
 
-print("Before:\n", points)
+print("Before:")
+print([
+    [round(v, 3) for v in p] for p in buffer
+])
 for i in range(steps):
     angle_along_circle = 360 / steps * (i+1)
     points = update(points, 1/steps, v, w)
@@ -55,9 +55,10 @@ for i in range(steps):
     print([
         [round(v, 3) for v in p] for p in points
     ])
-    # print(points)
 
 buffer = deque(points.tolist(), maxlen=None)
-print(buffer)
-print("After:\n", np.round(points, 3))
+print("After:")
+print([
+    [round(v, 3) for v in p] for p in buffer
+])
 exit()

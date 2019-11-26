@@ -42,9 +42,42 @@ class pure_pursuit_controller_node_better(object):
         self.pub_filtered_yellow_points = rospy.Publisher("~filtered_yellow_points", Polygon, queue_size=1)
         self.pub_filtered_white_points  = rospy.Publisher("~filtered_white_points",  Polygon, queue_size=1)
         
-        # Trackers for yellow and white points.
-        self.yellow_points_tracker = PointTracker(num_points_to_observe=5, memory_secs=1.0, max_distance=5.0, max_buffer_size=None)
-        self.white_points_tracker  = PointTracker(num_points_to_observe=5, memory_secs=1.0, max_distance=5.0, max_buffer_size=None)
+        
+        # Filter Parameters:
+
+
+        yellow_num_points_fallback = 5
+        yellow_num_points = self.setupParameter("~yellow_num_points", yellow_num_points_fallback)
+        yellow_points_memory_secs_fallback = 1.0
+        yellow_points_memory_secs = self.setupParameter("~yellow_points_memory_secs", yellow_points_memory_secs_fallback)
+        yellow_points_max_distance_fallback = 1.0
+        yellow_points_max_distance = self.setupParameter("~yellow_points_max_distance", yellow_points_max_distance_fallback)
+        yellow_max_buffer_size_fallback = 300
+        yellow_max_buffer_size = self.setupParameter("~yellow_max_buffer_size", yellow_max_buffer_size_fallback)
+
+        white_num_points_fallback = 5
+        white_num_points = self.setupParameter("~white_num_points", white_num_points_fallback)
+        white_points_memory_secs_fallback = 1.0
+        white_points_memory_secs = self.setupParameter("~white_points_memory_secs", white_points_memory_secs_fallback)  
+        white_points_max_distance_fallback = 3.0
+        white_points_max_distance = self.setupParameter("~white_points_max_distance", white_points_max_distance_fallback)  
+        white_max_buffer_size_fallback = 300
+        white_max_buffer_size = self.setupParameter("~white_max_buffer_size", white_max_buffer_size_fallback)
+
+
+        # Trackers for yellow and white points. 
+        self.yellow_points_tracker = PointTracker(
+            num_points_to_observe=yellow_num_points,
+            memory_secs=yellow_points_memory_secs,
+            max_distance=yellow_points_max_distance,
+            max_buffer_size=yellow_max_buffer_size
+        )
+        self.white_points_tracker  = PointTracker(
+            num_points_to_observe=white_num_points,
+            memory_secs=white_points_memory_secs,
+            max_distance=white_points_max_distance,
+            max_buffer_size=white_max_buffer_size
+        )
 
         # Subscriptions
         self.sub_seglist_filtered = rospy.Subscriber("~seglist_filtered", SegmentList, self.new_segments_received, queue_size=1)
@@ -183,7 +216,6 @@ class pure_pursuit_controller_node_better(object):
             # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
             # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
             # target = (best_white_point + best_yellow_point) / 2
-            
             if len(yellow_points) > len(white_points):
                 centroid_yellow = self.find_centroid(yellow_points)
                 target = centroid_yellow
@@ -211,13 +243,13 @@ class pure_pursuit_controller_node_better(object):
 
         hypothenuse = np.sqrt(target.dot(target))
         sin_alpha = target[1] / hypothenuse
-        
+        cos_alpha = target[0] / hypothenuse
         min_speed = 0.1
         max_speed = 1.0
 
         # TODO: maybe play around with changing V depending on sin_alpha.
-        v = self.v_max * (1 - abs(sin_alpha))
-        v = np.clip(v, min_speed, max_speed)
+        v = self.v_max * (cos_alpha ** 2)
+        v = np.clip(v, min_speed, max_speed * (0.5 if len(yellow_points) == 0 else 1.0))
 
         omega = 2 * sin_alpha / self.lookahead_dist
         self.send_car_command(v, omega)
