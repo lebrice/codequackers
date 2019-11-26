@@ -134,6 +134,7 @@ class FSMNode(object):
         return state in self.states_dict.keys()
 
     def cbSrvSetState(self,req):
+        rospy.loginfo("SRV Received Req state: {}".format(req.state))
         if self.isValidState(req.state):
             self.state_msg.header.stamp = rospy.Time.now()
             self.state_msg.state = req.state

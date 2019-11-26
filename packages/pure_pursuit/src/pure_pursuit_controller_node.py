@@ -13,6 +13,8 @@ from duckietown_msgs.msg import (BoolStamped, FSMState, LanePose,
                                  Twist2DStamped, WheelsCmdStamped, Vector2D)
 # from duckietown_msgs.msg import PointList
 from geometry_msgs.msg import Point
+from duckietown_msgs.srv import SetFSMState, SetFSMStateRequest, SetFSMStateResponse
+
 
 import os
 import datetime
@@ -28,11 +30,27 @@ class pure_pursuit_controller(object):
 
     def __init__(self):
         self.node_name = rospy.get_name()
-        self.loginfo("HEYHEYHOHO")
         self.loginfo("Node Name: {}".format(self.node_name))
         
         last_edit_time = os.environ.get("LAST_EDIT_TIME", "UNKNOWN")
         self.logwarn("This code was last edited on {}".format(last_edit_time))
+
+        # # Set the FSM into lane_following state
+        # state = "LANE_FOLLOWING"
+        # rospy.logwarn("Start happened")
+        # request = SetFSMStateRequest(state)
+        # rospy.wait_for_service('/default/fsm_node/set_state', timeout=5)
+        # self.setFSMState = rospy.ServiceProxy('/default/fsm_node/set_state',SetFSMState)
+
+
+        try:
+            self.setFSMState(request)
+            rospy.log("Requested state: {}".format(state))
+        except rospy.ServiceException as exc:
+            rospy.logwarn("FSM service did not process changeState start:"+ str(exc))
+        except Exception as e:
+            rospy.logwarn("FSM other excstart: "+str(e))
+
         
         self.header = None
         # Publication

@@ -9,6 +9,8 @@ from duckietown_msgs.msg import (BoolStamped, FSMState, LanePose,
 from sensor_msgs.msg import CompressedImage, Image
 from std_msgs.msg import Float32
 from geometry_msgs.msg import Point32
+from duckietown_msgs.srv import SetFSMState, SetFSMStateRequest, SetFSMStateResponse
+
 
 
 # from duckietown_msgs.msg import PointList
@@ -19,6 +21,9 @@ import os
 import datetime
 # import test_pure_pursuit
 
+stop_fsm_state = "ARRIVE_AT_STOP_LINE"
+follow_fsm_state = "LANE_FOLLOWING"
+
 class vehicle_detection_node(object):
 
     def __init__(self):
@@ -26,6 +31,12 @@ class vehicle_detection_node(object):
         self.bridge = CvBridge()
         self.loginfo("Node Name: {}".format(self.node_name))
         self.last_stamp = rospy.Time.now()
+
+        self.vehicle_detected = False
+        # Setup connection to FSM service
+        rospy.wait_for_service('/default/fsm_node/set_state', timeout=5)
+        # rospy.wait_for_service('~set_state', timeout=5)
+        self.setFSMState = rospy.ServiceProxy('/default/fsm_node/set_state',SetFSMState)
 
         # Setup parameters for circlegrid detection
         self.publish_freq = self.setupParam("~publish_freq", 2.0)
@@ -66,6 +77,8 @@ class vehicle_detection_node(object):
         else:
             self.last_stamp = now
 
+        self.loginfo("Processing image")
+
 
         vehicle_detected_msg_out = BoolStamped()
         vehicle_corners_msg_out = VehicleCorners()
@@ -87,10 +100,11 @@ class vehicle_detection_node(object):
         
 
         vehicle_detected_msg_out.data = detection
-        if(vehicle_detected_msg_out.data is not False):
-            self.loginfo(">>>>>>>>>>>>>>>>>>>>>Published on detection")
+        # if(vehicle_detected_msg_out.data is not False):
+        #     self.loginfo(">>>>>>>>>>>>>>>>>>>>>Published on detection")
         self.pub_detection.publish(vehicle_detected_msg_out)
         if detection:
+            self.logwarn("Detected vehicle")
             # print(corners)
             points_list = []
             for point in corners:
@@ -107,6 +121,27 @@ class vehicle_detection_node(object):
             vehicle_corners_msg_out.H = self.circlepattern_dims[1]
             vehicle_corners_msg_out.W = self.circlepattern_dims[0]
             self.pub_corners.publish(vehicle_corners_msg_out)
+            
+            
+        # If we changed detection state
+        if(self.vehicle_detected != detection):
+            state = stop_fsm_state if detection else follow_fsm_state
+            # Set state to vehicle detected -> Stop
+            request = SetFSMStateRequest(state)
+            self.loginfo("Detection state to send: "+str(state))
+            try:
+                self.setFSMState(request)
+            except rospy.ServiceException as exc:
+                rospy.logwarn("FSM service did not process changeState stop:"+ str(exc))
+            except Exception as e:
+                rospy.logwarn("FSM service did not process changeState, exception: "+str(e))
+            except:
+                rospy.logwarn("FSM service did not process changeState")
+
+        self.vehicle_detected = detection
+
+
+
         elapsed_time = (rospy.Time.now() - start).to_sec()
         self.pub_time_elapsed.publish(elapsed_time)
         if self.publish_circles:
@@ -131,7 +166,7 @@ class vehicle_detection_node(object):
 
         # Send stop command
         self.loginfo("Stopping the robot")
-        self.send_car_command(0.0,0.0)
+        # self.send_car_command(0.0,0.0)
 
         rospy.sleep(1.0)    #To make sure that it gets published.
         self.loginfo("Shutdown")
@@ -155,7 +190,7 @@ class vehicle_detection_node(object):
         return value
 
 if __name__ == "__main__":
-    rospy.init_node("vehicle_detection_node", anonymous=False, log_level=rospy.INFO)  # adapted to sonjas default file
+    rospy.init_node("vehicle_detection_node", anonymous=False, log_level=rospy.INFO)
 
     vehicle_detection_node = vehicle_detection_node()
     rospy.spin()

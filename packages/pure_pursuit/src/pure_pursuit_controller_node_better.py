@@ -107,7 +107,7 @@ class pure_pursuit_controller_node_better(object):
         filtered_points_msg.points = [
             Point32(p[0], p[1], 0.) for p in yellow_points
         ]
-        self.loginfo("Publishing {} new yellow points".format(len(filtered_points_msg.points)))
+        # self.loginfo("Publishing {} new yellow points".format(len(filtered_points_msg.points)))
         self.pub_filtered_yellow_points.publish(filtered_points_msg)
 
     def publish_filtered_white_points(self, white_points):
@@ -116,14 +116,14 @@ class pure_pursuit_controller_node_better(object):
         filtered_points_msg.points = [
             Point32(p[0], p[1], 0.) for p in white_points
         ]
-        self.loginfo("Publishing {} new white points".format(len(filtered_points_msg.points)))
+        # self.loginfo("Publishing {} new white points".format(len(filtered_points_msg.points)))
         self.pub_filtered_white_points.publish(filtered_points_msg)
 
 
     def new_segments_received(self, inlier_segments_msg):
         self.header = inlier_segments_msg.header
         segments = inlier_segments_msg.segments
-        self.logdebug("Received {} new segments".format(len(segments)))
+        # self.logdebug("Received {} new segments".format(len(segments)))
         
         points = collections.defaultdict(list)
         for i, segment in enumerate(segments):
@@ -138,11 +138,11 @@ class pure_pursuit_controller_node_better(object):
     def new_pose_received(self, lane_pose_message):
         d = lane_pose_message.d
         phi = lane_pose_message.phi
-        self.loginfo("Current state: v={}, omega={} d={}, phi={}".format(self.v, self.omega, d, phi))
+        # self.loginfo("Current state: v={}, omega={} d={}, phi={}".format(self.v, self.omega, d, phi))
 
 
     def update_car_command(self, timer_event):
-        self.logdebug("updating car command")
+        # self.logdebug("updating car command")
         
         # self.update_past_path_point_coordinates(timer_event)
         # self.publish_path_points()
@@ -155,12 +155,12 @@ class pure_pursuit_controller_node_better(object):
         self.publish_filtered_white_points(white_points)
 
         if len(yellow_points) == 0 and len(white_points) == 0:
-            self.logwarn("NO POINTS")
+            # self.logwarn("NO POINTS")
             if self.v == 0 and self.omega == 0:
-                self.logwarn("Robot is immobile and can't see any lines.")
+                # self.logwarn("Robot is immobile and can't see any lines.")
                 self.send_car_command(0.05, 0)
             else:
-                self.logwarn("Can't see any lines. Proceeding with same velocity and heading as before (v={}, omega={})".format(self.v, self.omega))
+                # self.logwarn("Can't see any lines. Proceeding with same velocity and heading as before (v={}, omega={})".format(self.v, self.omega))
                 self.send_car_command(self.v, self.omega)
             return
 
@@ -200,7 +200,7 @@ class pure_pursuit_controller_node_better(object):
         #     target = white_centroid
         #     target[1] += self.offset * 3 # shifted to the left.
 
-        self.logdebug("Target: {}".format(target))
+        # self.logdebug("Target: {}".format(target))
         self.target = target
 
         target_msg = Vector2D()
@@ -260,7 +260,7 @@ class pure_pursuit_controller_node_better(object):
         car_control_msg.v = v
         car_control_msg.omega = omega
 
-        self.logdebug("Sending car command: v: {} omega: {}".format(v, omega))
+        # self.logdebug("Sending car command: v: {} omega: {}".format(v, omega))
         self.pub_car_cmd.publish(car_control_msg)
 
     def loginfo(self, s):

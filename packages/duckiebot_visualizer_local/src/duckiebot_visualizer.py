@@ -82,18 +82,18 @@ class DuckieBotVisualizer(object):
         self.pub_follow_point.publish(marker)
 
     def view_filtered_yellow_points(self, filtered_points_msg):
-        print("RECEIVED YELLOW POINTS.", len(filtered_points_msg.points))
+        # print("RECEIVED YELLOW POINTS.", len(filtered_points_msg.points))
         marker_array = MarkerArray()
         marker = self.pointList2Marker(filtered_points_msg, color="YELLOW")
         marker_array.markers.append(marker)
         self.pub_filtered_yellow_points_markers.publish(marker_array)
 
     def view_filtered_white_points(self, filtered_points_msg):
-        print("RECEIVED WHITE POINTS:", len(filtered_points_msg.points))
+        # print("RECEIVED WHITE POINTS:", len(filtered_points_msg.points))
         marker_array = MarkerArray()
         marker = self.pointList2Marker(filtered_points_msg, color="WHITE")
         marker_array.markers.append(marker)
-        # self.pub_filtered_white_points_markers.publish(marker_array)
+        self.pub_filtered_white_points_markers.publish(marker_array)
 
     def segList2Marker(self,seg_list_msg):
         marker = Marker()
@@ -158,7 +158,7 @@ class DuckieBotVisualizer(object):
             marker.colors.append(color)
             marker.colors.append(color)
 
-        rospy.loginfo("[%s] Number of points %s" %(self.node_name,len(marker.points)))
+        # rospy.loginfo("[%s] Number of points %s" %(self.node_name,len(marker.points)))
         return marker
 
 
