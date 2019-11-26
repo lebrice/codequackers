@@ -176,16 +176,16 @@ class PointTracker(object):
         points = np.array(self.buffer, dtype=float)
         # only update the estimated position of points that are older than 'dt'.
         to_update = current_time - points[:,2] > dt
-        updated_points = self.dead_reckoning(points[to_update], dt, v, w)
+        updated_points = self.dead_reckoning(points[to_update], dt=dt, v=v, w=w)
         points = np.concatenate([updated_points, points[~to_update]], axis=0)
         self.buffer = deque(points.tolist(), maxlen=self.max_buffer_length)
 
         if self.centroids is not None and len(self.centroids) != 0:
             # move the centroids such that the next guess might be better than the previous.
-            self.centroids = self.dead_reckoning(self.centroids, dt, w, v)
+            self.centroids = self.dead_reckoning(self.centroids, dt=dt, v=v, w=w)
 
     
-    def dead_reckoning(self, points, dt, w, v):
+    def dead_reckoning(self, points, dt, v, w):
         if w == 0:
             # going in a straight line.
             displacement = dt * v
