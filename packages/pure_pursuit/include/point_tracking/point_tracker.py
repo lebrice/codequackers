@@ -12,7 +12,7 @@ import rospy
 from collections import deque
 import copy
 
-from utils import *
+from utils import rotation, points_to_np
 
 from threading import Lock
 from scipy.cluster.vq import kmeans
@@ -111,6 +111,7 @@ class PointTracker(object):
             # TODO: only update the location of points that are older than dt!
 
             self._update_points_location(dt, v, w)
+
             # perform a clustering to create the observations.
             self.centroids = self._clustering()
 
@@ -132,7 +133,7 @@ class PointTracker(object):
             k = self.centroids
         points = np.array(self.buffer, dtype=float)[..., :2] # don't use the timestamp during k-means.
         centroids, distortion = kmeans(points, k_or_guess=k)
-        return centroids
+        return np.asarray(centroids, dtype=float)
 
     def _remove_old_points(self, current_time):
         """Removes all the points which are older than `self.memory_secs` seconds.
@@ -169,31 +170,35 @@ class PointTracker(object):
         if not self.buffer:
             # buffer is empty.
             return
-        points = np.array(self.buffer, dtype=float)
-        
         current_time = rospy.get_time()
-        # TODO: only update the location of points that are older than dt!
+
+
+        points = np.array(self.buffer, dtype=float)
+        # only update the estimated position of points that are older than 'dt'.
         to_update = current_time - points[:,2] > dt
+        updated_points = self.dead_reckoning(points[to_update], dt, v, w)
+        points = np.concatenate([updated_points, points[~to_update]], axis=0)
+        self.buffer = deque(points.tolist(), maxlen=self.max_buffer_length)
 
-        points_to_update = points[to_update]
-        points_not_to_update = points[~to_update]
+        if self.centroids is not None and len(self.centroids) != 0:
+            # move the centroids such that the next guess might be better than the previous.
+            self.centroids = self.dead_reckoning(self.centroids, dt, w, v)
 
+    
+    def dead_reckoning(self, points, dt, w, v):
         if w == 0:
             # going in a straight line.
             displacement = dt * v
-            points_to_update[:, 0] -= displacement
+            points[:, 0] -= displacement
         else:
             angle_along_arc = dt * w
             radius_of_curvature = np.abs(v / w)
             dx = radius_of_curvature * np.sin(angle_along_arc)
             dy = radius_of_curvature * (1 - np.cos(angle_along_arc))
             # print("dx:", dx, "dy:", dy)
-            points_to_update[:, 0] -= dx
-            points_to_update[:, 1] -= dy
-
+            points[:, 0] -= dx
+            points[:, 1] -= dy
             rotation_matrix = rotation(angle_along_arc)
-            points_to_update[:, :2] = np.matmul(points_to_update[:, :2], rotation_matrix)
+            points[:, :2] = np.matmul(points[:, :2], rotation_matrix)
+        return points
 
-        points = np.concatenate([points_not_to_update, points_to_update], axis=0)
-
-        self.buffer = deque(points.tolist(), maxlen=self.max_buffer_length)   
