@@ -1,0 +1,6 @@
+<launch>
+	<arg name="veh" default="default"/>
+	<node ns="$(arg veh)" name="undistord_image_node" pkg="undistort" type="undistort_image_node.py" output="screen">
+		<param name="~veh_name" value="$(arg veh)"/>
+	</node>
+</launch>
