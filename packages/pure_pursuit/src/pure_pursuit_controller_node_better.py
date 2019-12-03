@@ -179,19 +179,21 @@ class pure_pursuit_controller_node_better(object):
 
     def update_car_command(self, timer_event):
         
-        yellow_points = np.copy(self.yellow_points_tracker.tracked_points)
-        white_points = np.copy(self.white_points_tracker.tracked_points)
+        yellow_points = self.yellow_points_tracker.tracked_points
+        white_points = self.white_points_tracker.tracked_points
 
         self.publish_filtered_yellow_points(yellow_points)
         self.publish_filtered_white_points(white_points)
 
         if len(yellow_points) == 0 and len(white_points) == 0:
-            self.logwarn("NO POINTS")
+            # self.logwarn("NO POINTS")
             if self.v == 0 and self.omega == 0:
                 self.logwarn("Robot is immobile and can't see any lines.")
                 self.send_car_command(0.05, 0)
             else:
-                self.logwarn("Can't see any lines. Proceeding with same velocity and heading as before (v={}, omega={})".format(self.v, self.omega))
+                self.v *= 0.5
+                self.v = min(max(self.v, 0.05), self.v_max)
+                self.logwarn("Can't see any lines. Reducing speed and moving at same angle. (v={}, omega={})".format(self.v, self.omega))
                 self.send_car_command(self.v, self.omega)
             return
         else:
@@ -246,10 +248,12 @@ class pure_pursuit_controller_node_better(object):
 
 
     def find_point_closest_to_lookahead_distance(self, points):
+        # TODO: only consider points that are forward from the current robot position!
         lookahead_mag = self.lookahead_dist ** 2
-        distances = np.sum(points ** 2, axis=0)
-        min_index = np.argmin(distances - lookahead_mag, axis=0)
-        best_point = points[min_index]
+        distances = points[:, 0] ** 2 + points[:, 1] ** 2
+        distances_from_lookahead_mag = np.abs(distances - lookahead_mag)
+        min_index = np.argmin(distances_from_lookahead_mag, axis=0)
+        best_point = points[min_index] # updated.
         return best_point
     
     def has_points(self, color=None):
