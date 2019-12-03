@@ -101,8 +101,8 @@ class PointTracker(object):
         Arguments:
             twist_msg {twist_msg} -- a message object which contains the tangential (v) and angular (omega) velocities of the robot.
         """
-        current_time = get_header_time(twist_msg)
-
+        # current_time = get_header_time(twist_msg)
+        current_time = rospy.get_time()
         if self.last_update_time is None:
             self.last_update_time = current_time
 
