@@ -179,8 +179,8 @@ class pure_pursuit_controller_node_better(object):
 
     def update_car_command(self, timer_event):
         
-        yellow_points = self.yellow_points_tracker.tracked_points
-        white_points = self.white_points_tracker.tracked_points
+        yellow_points = np.copy(self.yellow_points_tracker.tracked_points)
+        white_points = np.copy(self.white_points_tracker.tracked_points)
 
         self.publish_filtered_yellow_points(yellow_points)
         self.publish_filtered_white_points(white_points)
@@ -207,7 +207,7 @@ class pure_pursuit_controller_node_better(object):
             if len(yellow_points) > len(white_points):
                 # centroid_yellow = self.find_centroid(yellow_points)
                 # target = centroid_yellow
-                target = self.find_point_closest_to_lookahead_distance(np.copy(yellow_points))
+                target = self.find_point_closest_to_lookahead_distance(yellow_points)
                 target[1] -= self.offset # shifted to the right.
             else:
                 centroid_white = self.find_centroid(white_points)
