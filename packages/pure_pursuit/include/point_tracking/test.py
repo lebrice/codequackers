@@ -14,13 +14,17 @@ def rotation(theta):
     ])
 
 
-p0 = (0, 0, 123123.1)
+p0 = (0, 0, 100.1)
 p1 = (0, 1, 123123.2)
 p2 = (1, 0, 123123.3)
 
 buffer = deque([p0, p1, p2])
 points = np.array(buffer, dtype=float)
 
+# to_update = points[..., 2] < 1000
+# points[to_update] = points[to_update] + 123
+# print(points)
+# exit()
 
 def update(points, dt, v, w):
     if w == 0:
@@ -61,4 +65,9 @@ print("After:")
 print([
     [round(v, 3) for v in p] for p in buffer
 ])
+
+
+
+
+
 exit()

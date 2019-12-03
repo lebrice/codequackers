@@ -24,6 +24,7 @@ class Color(enum.Enum):
     YELLOW = Segment.YELLOW
     RED = Segment.RED
 
+    
 class pure_pursuit_controller_node_better(object):
 
     def __init__(self):
@@ -105,7 +106,7 @@ class pure_pursuit_controller_node_better(object):
         self.omega = 0
 
         # safe shutdown
-        rospy.on_shutdown(self.custom_shutdown)              
+        rospy.on_shutdown(self.custom_shutdown)      
         self.loginfo("Initialized")
     
     def update_trackers_callback(self, twist_msg):
@@ -114,6 +115,8 @@ class pure_pursuit_controller_node_better(object):
         Arguments:
             twist_msg {twist_msg} -- a message object which contains the tangential (v) and angular (omega) velocities of the robot.
         """
+        # self.loginfo("Received new twist message: {}".format(twist_msg))
+        
         self.yellow_points_tracker.update_points_callback(twist_msg)
         self.white_points_tracker.update_points_callback(twist_msg)
         self.loginfo("White point tracker has {} points and Yellow PointTracker has {}.".format(self.white_points_tracker.buffer_length, self.yellow_points_tracker.buffer_length))
@@ -157,8 +160,7 @@ class pure_pursuit_controller_node_better(object):
     def new_segments_received(self, inlier_segments_msg):
         self.header = inlier_segments_msg.header
         segments = inlier_segments_msg.segments
-        self.logdebug("Received {} new segments".format(len(segments)))
-        
+
         points = collections.defaultdict(list)
         for i, segment in enumerate(segments):
             color = Color(segment.color)
@@ -176,14 +178,9 @@ class pure_pursuit_controller_node_better(object):
 
 
     def update_car_command(self, timer_event):
-        self.logdebug("updating car command")
         
-        # self.update_past_path_point_coordinates(timer_event)
-        # self.publish_path_points()
-        # self.loginfo("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
-        
-        yellow_points = self.yellow_points_tracker.tracked_points
-        white_points = self.white_points_tracker.tracked_points
+        yellow_points = np.copy(self.yellow_points_tracker.tracked_points)
+        white_points = np.copy(self.white_points_tracker.tracked_points)
 
         self.publish_filtered_yellow_points(yellow_points)
         self.publish_filtered_white_points(white_points)
@@ -197,15 +194,6 @@ class pure_pursuit_controller_node_better(object):
                 self.logwarn("Can't see any lines. Proceeding with same velocity and heading as before (v={}, omega={})".format(self.v, self.omega))
                 self.send_car_command(self.v, self.omega)
             return
-
-        ## NOTE: unused, was previously only considering yellow points.
-        # elif self.has_points(Color.YELLOW):
-        #     self.loginfo("YELLOW")
-        #     # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
-        #     # target = best_yellow_point
-        #     centroid_yellow = self.find_centroid(Color.YELLOW)
-        #     target = centroid_yellow
-        #     target[1] -= self.offset # shifted to the right.
         else:
             # NOTE: unused, was previously doing mean of centroids.
             # centroid_yellow = self.find_centroid(Color.YELLOW)
@@ -217,12 +205,14 @@ class pure_pursuit_controller_node_better(object):
             # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
             # target = (best_white_point + best_yellow_point) / 2
             if len(yellow_points) > len(white_points):
-                centroid_yellow = self.find_centroid(yellow_points)
-                target = centroid_yellow
+                # centroid_yellow = self.find_centroid(yellow_points)
+                # target = centroid_yellow
+                target = self.find_point_closest_to_lookahead_distance(yellow_points)
                 target[1] -= self.offset # shifted to the right.
             else:
                 centroid_white = self.find_centroid(white_points)
                 target = centroid_white
+                # target = self.find_point_closest_to_lookahead_distance(white_points)
                 target[1] += self.offset # shift to the left.
 
         # elif not self.has_points(Color.YELLOW) point_to_npand self.has_points(Color.WHITE):
@@ -257,9 +247,8 @@ class pure_pursuit_controller_node_better(object):
 
     def find_point_closest_to_lookahead_distance(self, points):
         lookahead_mag = self.lookahead_dist ** 2
-        robot_pos = np.zeros_like(points)
         distances = np.sum(points ** 2, axis=0)
-        min_index = np.argmin(distances - lookahead_mag)
+        min_index = np.argmin(distances - lookahead_mag, axis=0)
         best_point = points[min_index]
         return best_point
     

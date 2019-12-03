@@ -17,6 +17,12 @@ from utils import rotation, points_to_np
 from threading import Lock
 from scipy.cluster.vq import kmeans
 
+
+def get_header_time(message_with_header):
+    stamp = message_with_header.header.stamp
+    return stamp.secs + stamp.nsecs * 1e-9
+
+
 class PointTracker(object):
     """
     Keeps track of the movement of points over a short period of time.
@@ -95,11 +101,15 @@ class PointTracker(object):
         Arguments:
             twist_msg {twist_msg} -- a message object which contains the tangential (v) and angular (omega) velocities of the robot.
         """
+        current_time = get_header_time(twist_msg)
 
-        current_time = rospy.get_time()
         if self.last_update_time is None:
             self.last_update_time = current_time
+
+        if current_time <= self.last_update_time:
+            print("Weird, the update points callback has same current and previous time")
             return
+
         with self.buffer_lock:
             # first get rid of points that are too old
             self._remove_old_points(current_time)

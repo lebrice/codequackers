@@ -2,10 +2,16 @@
 lookahead_dist: 1.0
 buffer_length: 50
 v_max: 0.5
-delta_t: 0.5
+delta_t: 0.1
 offset: 0.15
 
 yellow_num_points: 5
 yellow_points_memory_secs: 1.0 
 yellow_points_max_distance: 2.0
 yellow_max_buffer_size: 500
+
+
+white_num_points: 5
+white_points_memory_secs: 1.0 
+white_points_max_distance: 2.0
+white_max_buffer_size: 500
