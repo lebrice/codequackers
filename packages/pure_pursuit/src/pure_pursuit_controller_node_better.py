@@ -206,7 +206,7 @@ class pure_pursuit_controller_node_better(object):
             # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
             # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
             # target = (best_white_point + best_yellow_point) / 2
-            if len(yellow_points) > len(white_points):
+            if len(yellow_points) > 0:
                 # centroid_yellow = self.find_centroid(yellow_points)
                 # target = centroid_yellow
                 target = self.find_point_closest_to_lookahead_distance(yellow_points)

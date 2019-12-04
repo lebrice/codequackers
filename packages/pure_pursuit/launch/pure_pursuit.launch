@@ -4,6 +4,7 @@
 	<arg name="ai_trafo_mode" default="cb" doc="'cb' for colo balance only; 'both' for color balance and linear trafo"/>
 	<arg name="ai_interval" default="5" doc="interval with which the linear trafo gets updated. color balance is performed every second."/>
 	<arg name="verbose" default="false"/>
+	<arg name="vehicle_detection" default="false"/>
 
 	<!-- start basic args -->
 	<include file="$(find duckietown_demos)/launch/master.launch">
@@ -25,18 +26,13 @@
 	
 	<!-- My Pure Pursuit Lane controller -->
 	<group>
-		<remap from="pure_pursuit_controller_node/lane_pose" to="lane_filter_node/lane_pose"/>
-		
 		<!-- ######################### -->
 		<!-- Use this to use the unfiltered segments rather than the filtered ones: -->
 		<!-- <remap from="pure_pursuit_controller_node/seglist_filtered" to="ground_projection/lineseglist_out"/> -->
 		<remap from="pure_pursuit_controller_node/seglist_filtered" to="lane_filter_node/seglist_filtered"/>
 		<!-- ######################### -->
-
-
 		<!-- <remap from="pure_pursuit_controller_node/car_cmd" to="car_cmd_switch_node/cmd"/> -->
 		<remap from="pure_pursuit_controller_node/car_cmd" to="lane_controller_node/car_cmd"/>
-
 		<include file="$(find pure_pursuit)/launch/pure_pursuit_controller_node.launch">
 			<arg name="veh" value="$(arg veh)"/>
 
@@ -64,7 +60,7 @@
 	</group>
 
 	<!-- Vehicle detection node -->
-	<group>
+	<group if="$(arg vehicle_detection)">
 		<remap from="/default/vehicle_detection_node/image" to="camera_node/image/compressed"/>
 		<include file="$(find pure_pursuit)/launch/vehicle_detection.launch">
 			<arg name="veh" value="$(arg veh)" />
