@@ -18,6 +18,42 @@ import datetime
 
 from utils import *
 from point_tracking import PointTracker
+from collections import deque
+
+def pairs(iterable):
+    """Yields pairs from an iterable.
+    
+    Args:
+        iterable (Iterable[Item]): a list of items.
+    
+    Yields:
+        [Tuple[Item, Item]]: neighbouring pairs of items from the iterable.
+
+    >>> list(pairs([1, 2, 3]))
+    [(1, 2), (2, 3)]            
+    """
+    previous = None
+    for item in iterable:
+        current = item
+        if previous is not None:
+            yield previous, current
+        previous = current
+
+def n_consecutive(iterable, n=2):
+    temp = deque(maxlen=n)
+    for item in iterable:
+        temp.append(item)
+        if len(temp) == n:
+            yield tuple(temp)
+
+def curvature(path_points):
+    total_k = 0
+    for p1, p2 in pairs(sorted(path_points, key=lambda p: p[0])):
+        total_k += np.dot()
+
+
+def length(path_points)
+
 
 class Color(enum.Enum):
     WHITE = Segment.WHITE
@@ -209,6 +245,8 @@ class pure_pursuit_controller_node_better(object):
         # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
         # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
         # target = (best_white_point + best_yellow_point) / 2
+
+
         if len(yellow_points) > len(white_points):
             curvyness = np.std(yellow_points[:,1])
             length = np.amax(yellow_points[:, 0])

@@ -139,7 +139,7 @@ class PointTracker(object):
             np.array: The centroids of the K-means. (a list of shape of points, at most `self.num_points_to_observe` long)
         """
         if not self.buffer:
-            return []
+            return [], -1
         
         # we start from a random guess of K points from buffer.
         k = min(len(self.buffer), self.num_points_to_observe)

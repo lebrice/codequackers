@@ -7,67 +7,57 @@ centroids = None
 num_points_to_observe = 5
 
 
-def rotation(theta):
-    return np.array([
-        [np.cos(theta), -np.sin(theta)],
-        [np.sin(theta),  np.cos(theta)],
-    ])
+def pairs(iterable):
+    """Yields pairs from an iterable.
+    
+    Args:
+        iterable (Iterable[Item]): a list of items.
+    
+    Yields:
+        [Tuple[Item, Item]]: neighbouring pairs of items from the iterable.
 
+    >>> list(pairs([1, 2, 3]))
+    [(1, 2), (2, 3)]            
+    """
+    previous = None
+    for item in iterable:
+        current = item
+        if previous is not None:
+            yield previous, current
+        previous = current
 
-p0 = (0, 0, 100.1)
-p1 = (0, 1, 123123.2)
-p2 = (1, 0, 123123.3)
+def n_consecutive(iterable, n=2):
+    temp = deque(maxlen=n)
+    for item in iterable:
+        temp.append(item)
+        if len(temp) == n:
+            yield tuple(temp)
 
-buffer = deque([p0, p1, p2])
-points = np.array(buffer, dtype=float)
+def curvature(path_points):
+    total_k = 0
+    for p1, p2, p3 in n_consecutive(sorted(path_points, key=lambda p: p[0]), 3):
+        v1 = p2[:2] - p1[:2]
+        v2 = p3[:2] - p2[:2]
+        v1 = v1 / np.sum(v1)
+        v2 = v2 / np.sum(v2)
+        print("v1: ", v1)
+        print("v2: ", v2)
+        cos_theta = np.dot(v2, v1)
+        print("overlap: ", cos_theta)
+        total_k += cos_theta
+    return total_k
 
-# to_update = points[..., 2] < 1000
-# points[to_update] = points[to_update] + 123
-# print(points)
-# exit()
+def length(path_points):
+    total_length = 0
+    for p1, p2 in n_consecutive(sorted(path_points, key=lambda p: p[0]), 2):
+        v = p2[:2] - p1[:2]
+        total_length += np.sqrt(v.dot(v.T))
+    return total_length
 
-def update(points, dt, v, w):
-    if w == 0:
-        # going in a straight line.
-        displacement = dt * v
-        points[:, 0] -= displacement
-    else:
-        angle_along_arc = dt * w
-        radius_of_curvature = np.abs(v / w)
-        dx = radius_of_curvature * np.sin(angle_along_arc)
-        dy = radius_of_curvature * (1 - np.cos(angle_along_arc))
-        # print("dx:", dx, "dy:", dy)
-        points[:, 0] -= dx
-        points[:, 1] -= dy
-
-        rotation_matrix = rotation(angle_along_arc)
-        points[:, :2] = points[:, :2] @ rotation_matrix
-    return points
-
-w = 0.001
-v = 1
-steps = 4
-
-print("Before:")
-print([
-    [round(v, 3) for v in p] for p in buffer
+points = np.array([
+    [0, 0, 123],
+    [1, 0, 190],
+    [1, 1, 190],
 ])
-for i in range(steps):
-    angle_along_circle = 360 / steps * (i+1)
-    points = update(points, 1/steps, v, w)
-    print("angle along circle:", angle_along_circle)
-    print([
-        [round(v, 3) for v in p] for p in points
-    ])
-
-buffer = deque(points.tolist(), maxlen=None)
-print("After:")
-print([
-    [round(v, 3) for v in p] for p in buffer
-])
-
-
-
-
-
-exit()
+print("Length", length(points))
+print("total K:", curvature(points))
