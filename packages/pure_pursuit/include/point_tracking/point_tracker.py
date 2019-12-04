@@ -62,18 +62,23 @@ class PointTracker(object):
         # a buffer of length max_buffer_length containing tuples of the form (x: float, y: float, timestamp: float)
         # where the timestamp is the time at which the point was placed within the buffer, relative to the first data acquired.
         self.buffer = deque(maxlen=self.max_buffer_length)
+        self.enabled = True
+        self.recent = deque(maxlen=self.max_buffer_length)
 
         # the stored list of centroids (the result of K-means).
         # will be of length `num_points_to_observe`.
         self.centroids = None
         self.last_update_time = None
+        self.error = -1
 
     @property
     def tracked_points(self):
-        if self.centroids is not None:
-            return np.copy(self.centroids)
-        else:
+        if not self.enabled:
+            return np.array(self.buffer, dtype=float)
+        if self.centroids is None:
             return np.array([], dtype=float)
+        else:
+            return np.copy(self.centroids)
     
     @property
     def buffer_length(self):
@@ -123,7 +128,7 @@ class PointTracker(object):
             self._update_points_location(dt, v, w)
 
             # perform a clustering to create the observations.
-            self.centroids = self._clustering()
+            self.centroids, self.error = self._clustering()
 
         self.last_update_time = current_time
 
@@ -143,7 +148,7 @@ class PointTracker(object):
             k = self.centroids
         points = np.array(self.buffer, dtype=float)[..., :2] # don't use the timestamp during k-means.
         centroids, distortion = kmeans(points, k_or_guess=k)
-        return np.asarray(centroids, dtype=float)
+        return np.asarray(centroids, dtype=float), distortion
 
     def _remove_old_points(self, current_time):
         """Removes all the points which are older than `self.memory_secs` seconds.
