@@ -12,10 +12,16 @@ import rospy
 from collections import deque
 import copy
 
-from utils import *
+from utils import rotation, points_to_np
 
 from threading import Lock
 from scipy.cluster.vq import kmeans
+
+
+def get_header_time(message_with_header):
+    stamp = message_with_header.header.stamp
+    return stamp.secs + stamp.nsecs * 1e-9
+
 
 class PointTracker(object):
     """
@@ -56,18 +62,29 @@ class PointTracker(object):
         # a buffer of length max_buffer_length containing tuples of the form (x: float, y: float, timestamp: float)
         # where the timestamp is the time at which the point was placed within the buffer, relative to the first data acquired.
         self.buffer = deque(maxlen=self.max_buffer_length)
+        self.enabled = True
+        self.recent = deque(maxlen=self.max_buffer_length)
 
         # the stored list of centroids (the result of K-means).
         # will be of length `num_points_to_observe`.
         self.centroids = None
         self.last_update_time = None
+        self.error = -1
 
     @property
     def tracked_points(self):
-        if self.centroids is not None:
-            return np.copy(self.centroids)
-        else:
+        if not self.enabled:
+            return np.array(self.buffer, dtype=float)
+        if self.centroids is None:
             return np.array([], dtype=float)
+        else:
+            return np.copy(self.centroids)
+    
+    @property
+    def buffer_length(self):
+        """Returns the number of points currently in the buffer."""
+        with self.buffer_lock:
+            return len(self.buffer)
 
     def add_points(self, points_to_add):
         """Adds points to the 'points' attribute to be tracked.
@@ -89,11 +106,15 @@ class PointTracker(object):
         Arguments:
             twist_msg {twist_msg} -- a message object which contains the tangential (v) and angular (omega) velocities of the robot.
         """
-
+        # current_time = get_header_time(twist_msg)
         current_time = rospy.get_time()
         if self.last_update_time is None:
             self.last_update_time = current_time
+
+        if current_time <= self.last_update_time:
+            print("Weird, the update points callback has same current and previous time")
             return
+
         with self.buffer_lock:
             # first get rid of points that are too old
             self._remove_old_points(current_time)
@@ -105,8 +126,9 @@ class PointTracker(object):
             # TODO: only update the location of points that are older than dt!
 
             self._update_points_location(dt, v, w)
+
             # perform a clustering to create the observations.
-            self.centroids = self._clustering()
+            self.centroids, self.error = self._clustering()
 
         self.last_update_time = current_time
 
@@ -117,7 +139,7 @@ class PointTracker(object):
             np.array: The centroids of the K-means. (a list of shape of points, at most `self.num_points_to_observe` long)
         """
         if not self.buffer:
-            return []
+            return [], -1
         
         # we start from a random guess of K points from buffer.
         k = min(len(self.buffer), self.num_points_to_observe)
@@ -126,7 +148,7 @@ class PointTracker(object):
             k = self.centroids
         points = np.array(self.buffer, dtype=float)[..., :2] # don't use the timestamp during k-means.
         centroids, distortion = kmeans(points, k_or_guess=k)
-        return centroids
+        return np.asarray(centroids, dtype=float), distortion
 
     def _remove_old_points(self, current_time):
         """Removes all the points which are older than `self.memory_secs` seconds.
@@ -163,15 +185,21 @@ class PointTracker(object):
         if not self.buffer:
             # buffer is empty.
             return
-        points = np.array(self.buffer, dtype=float)
-        
         current_time = rospy.get_time()
-        # TODO: only update the location of points that are older than dt!
+
+
+        points = np.array(self.buffer, dtype=float)
+        # only update the estimated position of points that are older than 'dt'.
         to_update = current_time - points[:,2] > dt
+        points[to_update] = self.dead_reckoning(points[to_update], dt=dt, v=v, w=w)
+        self.buffer = deque(points.tolist(), maxlen=self.max_buffer_length)
 
-        # points_to_update = points[to_update]
-        # point_not_to_udpate = points[~to_update]
+        if self.centroids is not None and len(self.centroids) != 0:
+            # move the centroids such that the next guess might be better than the previous.
+            self.centroids = self.dead_reckoning(self.centroids, dt=dt, v=v, w=w)
 
+    
+    def dead_reckoning(self, points, dt, v, w):
         if w == 0:
             # going in a straight line.
             displacement = dt * v
@@ -184,8 +212,7 @@ class PointTracker(object):
             # print("dx:", dx, "dy:", dy)
             points[:, 0] -= dx
             points[:, 1] -= dy
-
             rotation_matrix = rotation(angle_along_arc)
             points[:, :2] = np.matmul(points[:, :2], rotation_matrix)
+        return points
 
-        self.buffer = deque(points.tolist(), maxlen=self.max_buffer_length)   

@@ -6,6 +6,7 @@
 	<arg name="verbose" default="false"/>
 	<arg name="fsm_file_name" default="default" />
 	<arg name="logic_gate_file_name" default="default" />
+	<arg name="vehicle_detection" default="false"/>
 
 	<!-- start basic args -->
 	<include file="$(find duckietown_demos)/launch/master.launch">
@@ -29,15 +30,14 @@
 	
 	<!-- My Pure Pursuit Lane controller -->
 	<group>
-		<remap from="pure_pursuit_controller_node/lane_pose" to="lane_filter_node/lane_pose"/>
+		<!-- ######################### -->
+		<!-- Use this to use the unfiltered segments rather than the filtered ones: -->
 		<!-- <remap from="pure_pursuit_controller_node/seglist_filtered" to="ground_projection/lineseglist_out"/> -->
-		
 		<remap from="pure_pursuit_controller_node/seglist_filtered" to="lane_filter_node/seglist_filtered"/>
 		<!-- <remap from="pure_pursuit_controller_node/car_cmd" to="car_cmd_switch_node/cmd"/> -->
 		<!-- publish the command to the lane_controller_node/car_cmd, the cmd_switch w/ FSM will handle publishing to robot-->
 		<remap from="pure_pursuit_controller_node/car_cmd" to="lane_controller_node/car_cmd"/>
 		<!-- <remap from="pure_pursuit_controller_node/car_cmd" to="lane_controller_node/car_cmd"/> -->
-
 		<include file="$(find pure_pursuit)/launch/pure_pursuit_controller_node.launch">
 			<arg name="veh" value="$(arg veh)"/>
 
@@ -65,7 +65,7 @@
 	</group>
 
 	<!-- Vehicle detection node -->
-	<group>
+	<group if="$(arg vehicle_detection)">
 		<remap from="/default/vehicle_detection_node/image" to="camera_node/image/compressed"/>
 		<include file="$(find pure_pursuit)/launch/vehicle_detection.launch">
 			<arg name="veh" value="$(arg veh)" />
@@ -95,5 +95,13 @@
 			<arg name="param_file_name" value="$(arg logic_gate_file_name)"/>
 		</include>
 	</group>
+
+	<!-- Kinematics: turns chassis-level commands into wheels-level commands and chassis-level velocities -->
+    <remap from="kinematics_node/car_cmd" to="lane_controller_node/car_cmd"/>
+    <remap from="kinematics_node/wheels_cmd" to="wheels_driver_node/wheels_cmd"/>
+    <include file="$(find dagu_car)/launch/kinematics_node.launch">
+        <arg name="veh" value="$(arg veh)"/>
+        <arg name="param_file_name" value="default"/>
+    </include>
 
 </launch>

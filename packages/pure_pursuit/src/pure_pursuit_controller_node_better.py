@@ -18,12 +18,49 @@ import datetime
 
 from utils import *
 from point_tracking import PointTracker
+from collections import deque
+
+def pairs(iterable):
+    """Yields pairs from an iterable.
+    
+    Args:
+        iterable (Iterable[Item]): a list of items.
+    
+    Yields:
+        [Tuple[Item, Item]]: neighbouring pairs of items from the iterable.
+
+    >>> list(pairs([1, 2, 3]))
+    [(1, 2), (2, 3)]            
+    """
+    previous = None
+    for item in iterable:
+        current = item
+        if previous is not None:
+            yield previous, current
+        previous = current
+
+def n_consecutive(iterable, n=2):
+    temp = deque(maxlen=n)
+    for item in iterable:
+        temp.append(item)
+        if len(temp) == n:
+            yield tuple(temp)
+
+def curvature(path_points):
+    total_k = 0
+    for p1, p2 in pairs(sorted(path_points, key=lambda p: p[0])):
+        total_k += np.dot()
+
+
+def length(path_points)
+
 
 class Color(enum.Enum):
     WHITE = Segment.WHITE
     YELLOW = Segment.YELLOW
     RED = Segment.RED
 
+    
 class pure_pursuit_controller_node_better(object):
 
     def __init__(self):
@@ -42,13 +79,46 @@ class pure_pursuit_controller_node_better(object):
         self.pub_filtered_yellow_points = rospy.Publisher("~filtered_yellow_points", Polygon, queue_size=1)
         self.pub_filtered_white_points  = rospy.Publisher("~filtered_white_points",  Polygon, queue_size=1)
         
-        # Trackers for yellow and white points.
-        self.yellow_points_tracker = PointTracker()
-        self.white_points_tracker = PointTracker()
+        
+        # Filter Parameters:
+
+
+        yellow_num_points_fallback = 5
+        yellow_num_points = self.setupParameter("~yellow_num_points", yellow_num_points_fallback)
+        yellow_points_memory_secs_fallback = 1.0
+        yellow_points_memory_secs = self.setupParameter("~yellow_points_memory_secs", yellow_points_memory_secs_fallback)
+        yellow_points_max_distance_fallback = 1.0
+        yellow_points_max_distance = self.setupParameter("~yellow_points_max_distance", yellow_points_max_distance_fallback)
+        yellow_max_buffer_size_fallback = 300
+        yellow_max_buffer_size = self.setupParameter("~yellow_max_buffer_size", yellow_max_buffer_size_fallback)
+
+        white_num_points_fallback = 5
+        white_num_points = self.setupParameter("~white_num_points", white_num_points_fallback)
+        white_points_memory_secs_fallback = 1.0
+        white_points_memory_secs = self.setupParameter("~white_points_memory_secs", white_points_memory_secs_fallback)  
+        white_points_max_distance_fallback = 3.0
+        white_points_max_distance = self.setupParameter("~white_points_max_distance", white_points_max_distance_fallback)  
+        white_max_buffer_size_fallback = 300
+        white_max_buffer_size = self.setupParameter("~white_max_buffer_size", white_max_buffer_size_fallback)
+
+
+        # Trackers for yellow and white points. 
+        self.yellow_points_tracker = PointTracker(
+            num_points_to_observe=yellow_num_points,
+            memory_secs=yellow_points_memory_secs,
+            max_distance=yellow_points_max_distance,
+            max_buffer_size=yellow_max_buffer_size
+        )
+        self.white_points_tracker  = PointTracker(
+            num_points_to_observe=white_num_points,
+            memory_secs=white_points_memory_secs,
+            max_distance=white_points_max_distance,
+            max_buffer_size=white_max_buffer_size
+        )
 
         # Subscriptions
         self.sub_seglist_filtered = rospy.Subscriber("~seglist_filtered", SegmentList, self.new_segments_received, queue_size=1)
-        self.sub_lane_pose = rospy.Subscriber("~lane_pose", LanePose, self.new_pose_received, queue_size=1)
+        # self.sub_lane_pose = rospy.Subscriber("~lane_pose", LanePose, self.new_pose_received, queue_size=1)
          # subscribe to the car_cmd, tu update the location of the points in the trackers' buffers.
         # TODO: subscribe to the forward kinematics node, if that can help.
         # TODO: make sure there isn't some weird feedback happening with the published topic of the same name.
@@ -72,7 +142,7 @@ class pure_pursuit_controller_node_better(object):
         self.omega = 0
 
         # safe shutdown
-        rospy.on_shutdown(self.custom_shutdown)              
+        rospy.on_shutdown(self.custom_shutdown)      
         self.loginfo("Initialized")
     
     def update_trackers_callback(self, twist_msg):
@@ -81,19 +151,23 @@ class pure_pursuit_controller_node_better(object):
         Arguments:
             twist_msg {twist_msg} -- a message object which contains the tangential (v) and angular (omega) velocities of the robot.
         """
+        # self.loginfo("Received new twist message: {}".format(twist_msg))
+        
         self.yellow_points_tracker.update_points_callback(twist_msg)
         self.white_points_tracker.update_points_callback(twist_msg)
+        self.loginfo("White points: {} \tYellow Points: {}.".format(self.white_points_tracker.buffer_length, self.yellow_points_tracker.buffer_length))
 
     def custom_shutdown(self):
         self.loginfo("Shutting down...")
 
         # Stop listening
         self.sub_seglist_filtered.unregister()
-        self.sub_lane_pose.unregister()
         
         # stop timer
         self.car_command_timer.shutdown()        
-
+        
+        rospy.sleep(self.delta_t * 2)    #To make sure that it gets published.
+        
         # Send stop command
         self.loginfo("Stopping the robot")
         self.send_car_command(0.0,0.0)
@@ -107,7 +181,7 @@ class pure_pursuit_controller_node_better(object):
         filtered_points_msg.points = [
             Point32(p[0], p[1], 0.) for p in yellow_points
         ]
-        # self.loginfo("Publishing {} new yellow points".format(len(filtered_points_msg.points)))
+        self.logdebug("Publishing {} new yellow points".format(len(filtered_points_msg.points)))
         self.pub_filtered_yellow_points.publish(filtered_points_msg)
 
     def publish_filtered_white_points(self, white_points):
@@ -116,15 +190,13 @@ class pure_pursuit_controller_node_better(object):
         filtered_points_msg.points = [
             Point32(p[0], p[1], 0.) for p in white_points
         ]
-        # self.loginfo("Publishing {} new white points".format(len(filtered_points_msg.points)))
+        self.logdebug("Publishing {} new white points".format(len(filtered_points_msg.points)))
         self.pub_filtered_white_points.publish(filtered_points_msg)
 
 
     def new_segments_received(self, inlier_segments_msg):
         self.header = inlier_segments_msg.header
         segments = inlier_segments_msg.segments
-        # self.logdebug("Received {} new segments".format(len(segments)))
-        
         points = collections.defaultdict(list)
         for i, segment in enumerate(segments):
             color = Color(segment.color)
@@ -138,59 +210,63 @@ class pure_pursuit_controller_node_better(object):
     def new_pose_received(self, lane_pose_message):
         d = lane_pose_message.d
         phi = lane_pose_message.phi
-        # self.loginfo("Current state: v={}, omega={} d={}, phi={}".format(self.v, self.omega, d, phi))
-
 
     def update_car_command(self, timer_event):
-        # self.logdebug("updating car command")
-        
-        # self.update_past_path_point_coordinates(timer_event)
-        # self.publish_path_points()
-        # self.loginfo("Points: {}".format({color.name: len(values) for color, values in self.points.items()}))
-        
         yellow_points = self.yellow_points_tracker.tracked_points
         white_points = self.white_points_tracker.tracked_points
 
         self.publish_filtered_yellow_points(yellow_points)
         self.publish_filtered_white_points(white_points)
-
         if len(yellow_points) == 0 and len(white_points) == 0:
             # self.logwarn("NO POINTS")
             if self.v == 0 and self.omega == 0:
                 # self.logwarn("Robot is immobile and can't see any lines.")
                 self.send_car_command(0.05, 0)
             else:
-                # self.logwarn("Can't see any lines. Proceeding with same velocity and heading as before (v={}, omega={})".format(self.v, self.omega))
+                self.v *= 0.5
+                self.v = np.clip(self.v, 0.05, self.v_max)
+                self.logwarn("Can't see any lines. Reducing speed and moving at same angle. (v={}, omega={})".format(self.v, self.omega))
                 self.send_car_command(self.v, self.omega)
             return
+        
+        min_speed = 0.1
+        max_speed = self.v_max
+        # NOTE: unused, was previously doing mean of centroids.
+        # centroid_yellow = self.find_centroid(Color.YELLOW)
+        # centroid_white = self.find_centroid(Color.WHITE)
+        # target = (centroid_white + centroid_yellow) / 2
 
-        ## NOTE: unused, was previously only considering yellow points.
-        # elif self.has_points(Color.YELLOW):
-        #     self.loginfo("YELLOW")
-        #     # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
-        #     # target = best_yellow_point
-        #     centroid_yellow = self.find_centroid(Color.YELLOW)
-        #     target = centroid_yellow
-        #     target[1] -= self.offset # shifted to the right.
+        # NOTE: unused, was previously doing mean of best points.
+        # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
+        # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
+        # target = (best_white_point + best_yellow_point) / 2
+
+
+        if len(yellow_points) > len(white_points):
+            curvyness = np.std(yellow_points[:,1])
+            length = np.amax(yellow_points[:, 0])
+            if curvyness < 0.01 and length >= self.lookahead_dist:
+                max_speed *= 5.0
+            # centroid_yellow = self.find_centroid(yellow_points)
+            # target = centroid_yellow
+            target = self.find_point_closest_to_lookahead_distance(yellow_points)
+            target[1] -= self.offset # shifted to the right.
         else:
-            # NOTE: unused, was previously doing mean of centroids.
-            # centroid_yellow = self.find_centroid(Color.YELLOW)
-            # centroid_white = self.find_centroid(Color.WHITE)
-            # target = (centroid_white + centroid_yellow) / 2
+            # going slower since we mostly see white points.
+            max_speed *= 0.5
+            curvyness = np.std(white_points[:,1])
+            length = np.amax(white_points[:, 0])
+            if curvyness < 0.01 and length >= self.lookahead_dist:
+                max_speed *= 2.0
+            if curvyness > 0.1:
+                max_speed *= 0.5                
 
-            # NOTE: unused, was previously doing mean of best points.
-            # best_white_point = self.find_point_closest_to_lookahead_distance(Color.WHITE)
-            # best_yellow_point = self.find_point_closest_to_lookahead_distance(Color.YELLOW)
-            # target = (best_white_point + best_yellow_point) / 2
-            
-            if len(yellow_points) > len(white_points):
-                centroid_yellow = self.find_centroid(yellow_points)
-                target = centroid_yellow
-                target[1] -= self.offset # shifted to the right.
-            else:
                 centroid_white = self.find_centroid(white_points)
                 target = centroid_white
-                target[1] += self.offset # shift to the left.
+            else:
+                target = self.find_point_closest_to_lookahead_distance(white_points)
+            target[1] += self.offset # shift to the left.
+        self.loginfo("std: {} \t length: {} \t max_speed: {}".format(curvyness, length, max_speed))
 
         # elif not self.has_points(Color.YELLOW) point_to_npand self.has_points(Color.WHITE):
         #     self.logwarn("WHITE")
@@ -210,24 +286,25 @@ class pure_pursuit_controller_node_better(object):
 
         hypothenuse = np.sqrt(target.dot(target))
         sin_alpha = target[1] / hypothenuse
+        cos_alpha = target[0] / hypothenuse
         
-        min_speed = 0.1
-        max_speed = 1.0
-
         # TODO: maybe play around with changing V depending on sin_alpha.
-        v = self.v_max * (1 - abs(sin_alpha))
-        v = np.clip(v, min_speed, max_speed)
+        v = max_speed * (cos_alpha ** 2)
+        self.loginfo("cos^2(alpha) = {}".format((cos_alpha ** 2)))
+
+        self.v = np.clip(v, min_speed, max_speed)
 
         omega = 2 * sin_alpha / self.lookahead_dist
-        self.send_car_command(v, omega)
+        self.send_car_command(self.v, omega)
 
 
     def find_point_closest_to_lookahead_distance(self, points):
+        # TODO: only consider points that are forward from the current robot position!
         lookahead_mag = self.lookahead_dist ** 2
-        robot_pos = np.zeros_like(points)
-        distances = np.sum(points ** 2, axis=0)
-        min_index = np.argmin(distances - lookahead_mag)
-        best_point = points[min_index]
+        distances = points[:, 0] ** 2 + points[:, 1] ** 2
+        distances_from_lookahead_mag = np.abs(distances - lookahead_mag)
+        min_index = np.argmin(distances_from_lookahead_mag, axis=0)
+        best_point = points[min_index] # updated.
         return best_point
     
     def has_points(self, color=None):
