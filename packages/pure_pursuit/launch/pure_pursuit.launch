@@ -4,6 +4,8 @@
 	<arg name="ai_trafo_mode" default="cb" doc="'cb' for colo balance only; 'both' for color balance and linear trafo"/>
 	<arg name="ai_interval" default="5" doc="interval with which the linear trafo gets updated. color balance is performed every second."/>
 	<arg name="verbose" default="false"/>
+	<arg name="fsm_file_name" default="default" />
+	<arg name="logic_gate_file_name" default="default" />
 	<arg name="vehicle_detection" default="false"/>
 
 	<!-- start basic args -->
@@ -22,6 +24,8 @@
 		<arg name="/lane_following/lane_controller" default="false"/>
 		<!-- ADDED: turn off the duckiebot_vizualizer node. -->
 		<arg name="visualization" value="false"/>
+		<!-- ADDED: turn off fsm node-->
+		<arg name="fsm" default="false"/>
 	</include>
 	
 	<!-- My Pure Pursuit Lane controller -->
@@ -30,9 +34,10 @@
 		<!-- Use this to use the unfiltered segments rather than the filtered ones: -->
 		<!-- <remap from="pure_pursuit_controller_node/seglist_filtered" to="ground_projection/lineseglist_out"/> -->
 		<remap from="pure_pursuit_controller_node/seglist_filtered" to="lane_filter_node/seglist_filtered"/>
-		<!-- ######################### -->
 		<!-- <remap from="pure_pursuit_controller_node/car_cmd" to="car_cmd_switch_node/cmd"/> -->
+		<!-- publish the command to the lane_controller_node/car_cmd, the cmd_switch w/ FSM will handle publishing to robot-->
 		<remap from="pure_pursuit_controller_node/car_cmd" to="lane_controller_node/car_cmd"/>
+		<!-- <remap from="pure_pursuit_controller_node/car_cmd" to="lane_controller_node/car_cmd"/> -->
 		<include file="$(find pure_pursuit)/launch/pure_pursuit_controller_node.launch">
 			<arg name="veh" value="$(arg veh)"/>
 
@@ -67,6 +72,30 @@
 		</include>
 	</group>
 
+	<!-- FSM node -->
+	<group>
+		<!-- no remapping for FSM - full topic names specified in params yaml -->
+		<include file="$(find fsm_local)/launch/fsm_node.launch">
+			<arg name="veh" value="$(arg veh)"/>
+			<arg name="param_file_name" value="$(arg fsm_file_name)"/>
+		</include>
+
+		<!-- car_cmd_switch_node -->
+		<!-- no remappings for car_cmd_switch - full topic names specified in params yaml -->
+		<!-- <remap from="car_cmd_switch_node/cmd_lane_following" to="lane_controller_node/lane_control"/>
+		<group unless="$(arg vehicle_avoidance)">
+				<remap from="vehicle_avoidance_control_node/car_cmd" to="lane_controller_node/car_cmd" />
+		</group> -->
+
+
+	<remap from="implicit_coordination_node/intersection_go" to="logic_gate_node/implicit_intersection_go" />
+	<remap from="coordinator_node/intersection_go" to="logic_gate_node/explicit_intersection_go" /> -->
+		<include file="$(find fsm_local)/launch/logic_gate_node.launch">
+			<arg name="veh" value="$(arg veh)"/>
+			<arg name="param_file_name" value="$(arg logic_gate_file_name)"/>
+		</include>
+	</group>
+
 	<!-- Kinematics: turns chassis-level commands into wheels-level commands and chassis-level velocities -->
     <remap from="kinematics_node/car_cmd" to="lane_controller_node/car_cmd"/>
     <remap from="kinematics_node/wheels_cmd" to="wheels_driver_node/wheels_cmd"/>
@@ -74,7 +103,5 @@
         <arg name="veh" value="$(arg veh)"/>
         <arg name="param_file_name" value="default"/>
     </include>
-
-
 
 </launch>

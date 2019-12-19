@@ -197,7 +197,6 @@ class pure_pursuit_controller_node_better(object):
     def new_segments_received(self, inlier_segments_msg):
         self.header = inlier_segments_msg.header
         segments = inlier_segments_msg.segments
-
         points = collections.defaultdict(list)
         for i, segment in enumerate(segments):
             color = Color(segment.color)
@@ -211,11 +210,8 @@ class pure_pursuit_controller_node_better(object):
     def new_pose_received(self, lane_pose_message):
         d = lane_pose_message.d
         phi = lane_pose_message.phi
-        self.logdebug("Current state: v={}, omega={} d={}, phi={}".format(self.v, self.omega, d, phi))
-
 
     def update_car_command(self, timer_event):
-        
         yellow_points = self.yellow_points_tracker.tracked_points
         white_points = self.white_points_tracker.tracked_points
 
@@ -224,10 +220,9 @@ class pure_pursuit_controller_node_better(object):
         if len(yellow_points) == 0 and len(white_points) == 0:
             # self.logwarn("NO POINTS")
             if self.v == 0 and self.omega == 0:
-                self.logwarn("Robot is immobile and can't see any lines.")
+                # self.logwarn("Robot is immobile and can't see any lines.")
                 self.send_car_command(0.05, 0)
             else:
-                # slow down
                 self.v *= 0.5
                 self.v = np.clip(self.v, 0.05, self.v_max)
                 self.logwarn("Can't see any lines. Reducing speed and moving at same angle. (v={}, omega={})".format(self.v, self.omega))
@@ -281,7 +276,7 @@ class pure_pursuit_controller_node_better(object):
         #     target = white_centroid
         #     target[1] += self.offset * 3 # shifted to the left.
 
-        self.logdebug("Target: {}".format(target))
+        # self.logdebug("Target: {}".format(target))
         self.target = target
 
         target_msg = Vector2D()
@@ -342,7 +337,7 @@ class pure_pursuit_controller_node_better(object):
         car_control_msg.v = v
         car_control_msg.omega = omega
 
-        self.logdebug("Sending car command: v: {} omega: {}".format(v, omega))
+        # self.logdebug("Sending car command: v: {} omega: {}".format(v, omega))
         self.pub_car_cmd.publish(car_control_msg)
 
     def loginfo(self, s):
