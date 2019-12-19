@@ -14,6 +14,16 @@ To debug the behavior of the algorithm, it is relevant to visualize the new poin
 
 To achieve the LFV challenge, vehicles need to be able to detect other vehicles on the track. This is handled using the vehicle_detection_node, whichsubscribes to the compressed image topic and publishes information about the detection. This node specifically look for a circle grid, which is displayed on the back panel of a duckiebot. At the moment that this project was done, the simulator did not include a rear-panel on the duckiebot model, so we added one to the .obj file (which was pushed to the official gym-dt repo). Moreover, the simulator did have a calibration for the fisheye, so we were not able to get good result on the circlegrid detection. To mitigate the fisheye effect, we reduced the size of the grid that we were trying to detect. Hence, the software is set to detect a line of 3x1 circle (since it is the only size that we were able to detect with the fisheye effect), though it should not be a problem anymore since the simulator now provides proper undistorting matrices. Moreover, this should not be a problem on the real robot. Hence, it is recommended to tune the grid detection parameters to the size of the grid (or maximum size that can be detected correctly).
 
-If a duckiebot is detected, (TODO @Anthony)
+If a duckiebot is detected, we set the finite state machine (FSM node) to a stopping state. For our purpose, we reused an existing state that was mapped to a stop command: `ARRIVE_AT_STOP_LINE` and we set the state directly using the setFSM service offered by the FSM node. We included a local copy of the FSM node since the proper way of changing state would be to add new transitions, but it is not yet implemented (but the stopping works properly using the service).
 
+
+# Result
+
+## Simulation:
+
+The short-term slam helps the pure-pursuit better handle turns when the robot is facing the open field (before turning) and is not seeing any points. However, the buffer sometime generates outlier points which can confuse the pure_pursuit. Since the refresh rate is hight enough, even if we have a false follow point, the end result is not bad. The point buffer is definitely an improvement from the calssical lane_filter, though if he had more time we could tune it to get rid of outlier and improve the overall robustness. One idea would be to add weigths on points, based on how old they are or on our confidence level.
+
+## Real robot:
+
+The vehicle detection works properly, but the overall controller seems to be having problem on turns. It acts has if it was not detecting any lines for some specific right turns.
 

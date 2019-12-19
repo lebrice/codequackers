@@ -42,15 +42,6 @@ class pure_pursuit_controller(object):
         # rospy.wait_for_service('/default/fsm_node/set_state', timeout=5)
         # self.setFSMState = rospy.ServiceProxy('/default/fsm_node/set_state',SetFSMState)
 
-
-        try:
-            self.setFSMState(request)
-            rospy.log("Requested state: {}".format(state))
-        except rospy.ServiceException as exc:
-            rospy.logwarn("FSM service did not process changeState start:"+ str(exc))
-        except Exception as e:
-            rospy.logwarn("FSM other excstart: "+str(e))
-
         
         self.header = None
         # Publication

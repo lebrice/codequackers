@@ -52,8 +52,6 @@ def curvature(path_points):
         total_k += np.dot()
 
 
-def length(path_points)
-
 
 class Color(enum.Enum):
     WHITE = Segment.WHITE
