@@ -1,6 +1,20 @@
-# Short-term Slam and rear-panel detection
+# Short-term Slam and Duckiebot Detection
 
-This experimental demo contains code aims to solve the problem that the lane filter node is not giving enough data to build a robust controller. We will often not have enough measurment of the white or yellow line and it will be difficult to input a good command. To solve this problem, we implement a buffer that can keep track of previously seen objects (in this demo we use it with the yellow and white lines) and update it at each timestamp using the speed and angular velocity that was sent to the robot.
+## Project Description
+
+This repository contains the code of our course project, in which we aim to solve two distinct problems related to the LF and LFV challenges.
+
+The first problem is the fact that some measurements, such as the position of white or yellow line segments in the lane, are often received in short bursts, rather than at regular and consistent rates. This makes it difficult to produce robust controllers based on these inputs.
+
+The second is obstacle detection, in particular the detection of other duckiebots. To this end, we leveraged a distinct feature of the duckiebots' backpanel, namely their characteristic grid of black circles on a white background.
+
+We will provide a detailed overview of our approach for each problem here. 
+
+<!-- This experimental demo contains code aims to solve the problem that the lane filter node is not giving enough data to build a robust controller. We will often not have enough measurment of the white or yellow line and it will be difficult to input a good command. -->
+
+## "Short-Term Slam"
+
+To solve this problem, we implement a buffer that can keep track of previously seen objects (in this demo we use it with the yellow and white lines) and update it at each timestamp using the speed and angular velocity that was sent to the robot.
 
 The demo can be launched with the launch file "pure_pursuit.launch". It is possible to switch between the normal version and the augmented line detection version by uncommenting the line:
 
@@ -12,7 +26,7 @@ To debug the behavior of the algorithm, it is relevant to visualize the new poin
 
 # Vehicle detection
 
-To achieve the LFV challenge, vehicles need to be able to detect other vehicles on the track. This is handled using the vehicle_detection_node, whichsubscribes to the compressed image topic and publishes information about the detection. This node specifically look for a circle grid, which is displayed on the back panel of a duckiebot. At the moment that this project was done, the simulator did not include a rear-panel on the duckiebot model, so we added one to the .obj file (which was pushed to the official gym-dt repo). Moreover, the simulator did have a calibration for the fisheye, so we were not able to get good result on the circlegrid detection. To mitigate the fisheye effect, we reduced the size of the grid that we were trying to detect. Hence, the software is set to detect a line of 3x1 circle (since it is the only size that we were able to detect with the fisheye effect), though it should not be a problem anymore since the simulator now provides proper undistorting matrices. Moreover, this should not be a problem on the real robot. Hence, it is recommended to tune the grid detection parameters to the size of the grid (or maximum size that can be detected correctly).
+To achieve the LFV challenge, vehicles need to be able to detect other vehicles on the track. This is handled using the vehicle_detection_node, which subscribes to the compressed image topic and publishes information about the detection. This node specifically look for a circle grid, which is displayed on the back panel of a duckiebot. At the moment that this project was done, the simulator did not include a rear-panel on the duckiebot model, so we added one to the .obj file (which was pushed to the official gym-dt repo). Moreover, the simulator did have a calibration for the fisheye, so we were not able to get good result on the circlegrid detection. To mitigate the fisheye effect, we reduced the size of the grid that we were trying to detect. Hence, the software is set to detect a line of 3x1 circle (since it is the only size that we were able to detect with the fisheye effect), though it should not be a problem anymore since the simulator now provides proper undistorting matrices. Moreover, this should not be a problem on the real robot. Hence, it is recommended to tune the grid detection parameters to the size of the grid (or maximum size that can be detected correctly).
 
 If a duckiebot is detected, we set the finite state machine (FSM node) to a stopping state. For our purpose, we reused an existing state that was mapped to a stop command: `ARRIVE_AT_STOP_LINE` and we set the state directly using the setFSM service offered by the FSM node. We included a local copy of the FSM node since the proper way of changing state would be to add new transitions, but it is not yet implemented (but the stopping works properly using the service).
 
