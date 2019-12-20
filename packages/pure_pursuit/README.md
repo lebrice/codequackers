@@ -14,7 +14,31 @@ We will provide a detailed overview of our approach for each problem here.
 
 ## "Short-Term Slam"
 
-To solve this problem, we implement a buffer that can keep track of previously seen objects (in this demo we use it with the yellow and white lines) and update it at each timestamp using the speed and angular velocity that was sent to the robot.
+The main input to our Pure Pursuit controller is the ground projected relative position of white and yellow line segments from the input image. The white and yellow points of these segments are then used by the controller to produce an estimate of a trajectory the robot should follow.
+
+As previously mentioned, here are some characteristics of the filtered yellow and white line segments that are produced by the lane filter:
+
+1. They are not always available
+2. When they become available, they often come in big bursts
+3. When they are available, they are accurate (or assumed to be)
+
+
+Using these characteristics, we implement a buffer that can keep track of the location of previously seen objects (in this demo we use it with the yellow and white lines) and update it at each timestamp using the linear and angular velocities that were sent to the robot. In our case, the pure pursuit controller itself sends this command to the robot by publishing to the the `car_cmd` topic at a programmable frequency of 1/`delta_t`, 10Hz by default.
+
+This buffering mechanism, implemented in [the `PointTracker` class](include/point_tracking/point_tracker.py) is described here.
+
+First, When new measurements (i.e. line points) are received, they are passed to the `add_points` method, which stores their relative position and the time at which they were received in the buffer.
+Then, whenever a new car command is issued, it is also passed to the `update_points` method of the `PointTracker`, which performs the following steps: 
+
+1. Discard measurements older than a programmable threshold (`memory_secs`, 1 second by default)
+
+2. Discard measurements that are now further from the robot's current position than a given threshold distance (`max_distance`, 1m by default).
+
+3. Use the provided linear (`v`) and angular (`omega`) velocities of the `car_cmd` message, along with the amount of time elapsed since the last update, `dt`, to update the location of the measurements older than `delta_t` using dead-reckoning.
+
+4. Produce a set of K "observations" (i.e. centroids) by performing a K-Means clustering over the points in the buffer (with K = `num_points_to_observe`)
+
+The above-mentioned parameters and their values can be found within the `.yml` configuration files in the "`config/pure_pursuit_controller_node_better`" folder.
 
 The demo can be launched with the launch file "pure_pursuit.launch". It is possible to switch between the normal version and the augmented line detection version by uncommenting the line:
 
